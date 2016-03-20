@@ -23,65 +23,69 @@
   (tags mpd-tags set-mpd-tags!))
 
 
-(set-record-type-printer! <mpd-client>
-                          (lambda (client port)
-                            (format port
-                                    "<mpd-client ~a:~a"
-                                    (mpd-host client)
-                                    (mpd-port client))
-                            (if (mpd-version client)
-                                (format port " version: ~a" (mpd-version client)))
-                            (format port ">")))
+(set-record-type-printer!
+  <mpd-client>
+  (lambda (client port)
+    (format port "<mpd-client ~a:~a" (mpd-host client) (mpd-port client))
+
+    (when (mpd-version client)
+      (format port " version: ~a" (mpd-version client)))
+
+    (format port ">")))
 
 
 
-(define* (new-mpd-client #:optional (hostname "localhost") (port 6600))
+(define* (new-mpd-client #:optional [hostname "localhost"] [port 6600])
   (make-mpd-client hostname port))
 
 (define (mpd-connect client)
-  (define addresses
-    (delete-duplicates (getaddrinfo (mpd-host client)
-                                    (number->string (mpd-port client))
-                                    AI_NUMERICSERV)
-                       (lambda (a1 a2)
-                         (equal? (addrinfo:addr a1) (addrinfo:addr a2)))))
+  (define addresses (delete-duplicates
+                      (getaddrinfo
+                        (mpd-host client)
+                        (number->string (mpd-port client))
+                        AI_NUMERICSERV)
+                      (lambda (a1 a2)
+                        (equal? (addrinfo:addr a1) (addrinfo:addr a2)))))
 
-  (let address-loop ((addresses addresses))
-    (let* ((ai (car addresses))
-           (sock (with-fluids ((%default-port-encoding #f))
-                   (socket (addrinfo:fam ai) SOCK_STREAM IPPROTO_IP))))
+  (let address-loop ([addresses addresses])
+    (let* ([ai   (car addresses)]
+           [sock (with-fluids ((%default-port-encoding #f)) (socket
+                                                              (addrinfo:fam ai)
+                                                              SOCK_STREAM
+                                                              IPPROTO_IP))])
       (catch 'system-error
         (lambda ()
           (connect sock (addrinfo:addr ai))
           (set-mpd-sock! client sock)
-          (set-mpd-version! client (match:substring (string-match "^OK MPD (.+)$"
-                                                                  (read-line sock))
-                                                    1))
+          (set-mpd-version! client (match:substring
+                                     (string-match "^OK MPD (.+)$" (read-line
+                                                                     sock))
+                                     1))
           client)
         (lambda args
           (close sock)
           (if (null? (cdr addresses))
               (apply throw args)
-              (address-loop (cdr addresses))))))))
+            (address-loop (cdr addresses))))))))
 
 (define (mpd-receive sock)
   (call/cc
    (lambda (return)
      (while #t
        (when (char-ready? sock)
-         (let loop ((line (read-line sock))
-                    (lines '()))
+         (let loop ([line (read-line sock)]
+                    [lines '()])
            (if (string=? "OK" line)
                (return (reverse lines))
-               (loop (read-line sock)
-                     (cons line lines)))))))))
+             (loop (read-line sock) (cons line lines)))))))))
 
-(define* (send-command client str #:optional (handler *unspecified*))
+(define* (send-command client str #:optional [handler *unspecified*])
   (write-line str (mpd-socket client))
-  (let ((response (mpd-receive (mpd-socket client))))
+
+  (let ([response (mpd-receive (mpd-socket client))])
     (if (or (equal? handler #t) (equal? handler *unspecified*))
         handler
-        (apply handler response '()))))
+      (apply handler response '()))))
 
 (define (connected? client)
   (or (mpd-socket client) #t))
