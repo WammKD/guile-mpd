@@ -8,42 +8,59 @@
 (define-syntax mpd-define
   (lambda (stx)
     (syntax-case stx ()
-      ((_ (id arg ...) doc mpd-name handler)
+      ([_ (id arg ...) doc mpd-name handler]
        #'(define*-public (id client arg ...)
            doc
-           (let ((cmd-string (string-join (map (lambda (v)
-                                                 (if (number? v)
-                                                     (number->string v)
-                                                     v))
-                                               (filter (lambda (v)
-                                                         (or (string? v) (number? v)))
-                                                       (list (syntax->datum #'mpd-name) arg ...)))
-                                          " ")))
+           (let ([cmd-string (string-join
+                               (map
+                                 (lambda (v)
+                                   (if (number? v)
+                                       (number->string v)
+                                     v))
+                                 (filter
+                                   (lambda (v)
+                                     (or (string? v) (number? v)))
+                                   (list (syntax->datum #'mpd-name) arg ...)))
+                               " ")])
              (send-command client cmd-string handler))))
-      ((_ (id arg ...) doc mpd-name)
+      ([_ (id arg ...) doc mpd-name]
        #'(define*-public (id client arg ...)
            doc
-           (let ((cmd-string (string-join (map (lambda (v)
-                                                 (if (number? v)
-                                                     (number->string v)
-                                                     v))
-                                               (filter (lambda (v)
-                                                         (or (string? v) (number? v)))
-                                                       (list (syntax->datum #'mpd-name) arg ...)))
-                                          " ")))
+           (let ([cmd-string (string-join
+                               (map
+                                 (lambda (v)
+                                   (if (number? v)
+                                       (number->string v)
+                                     v))
+                                 (filter
+                                   (lambda (v)
+                                     (or (string? v) (number? v)))
+                                   (list (syntax->datum #'mpd-name) arg ...)))
+                               " ")])
              (send-command client cmd-string))))
-      ((_ (id arg ...) doc)
-       (with-syntax ((cmd-name (datum->syntax stx (regexp-substitute/global #f "[_!]" (symbol->string (syntax->datum #'id)) 'pre "" 'post))))
+      ([_ (id arg ...) doc]
+       (with-syntax ([cmd-name (datum->syntax
+                                 stx
+                                 (regexp-substitute/global
+                                  #f
+                                  "[_!]"
+                                  (symbol->string (syntax->datum #'id))
+                                  'pre
+                                  ""
+                                  'post))])
          #'(define*-public (id client arg ...)
              doc
-             (let ((cmd-string (string-join (map (lambda (v)
-                                                   (if (number? v)
-                                                       (number->string v)
-                                                       v))
-                                                 (filter (lambda (v)
-                                                           (or (string? v) (number? v)))
-                                                         (list cmd-name arg ...)))
-                                            " ")))
+             (let ([cmd-string (string-join
+                                 (map
+                                   (lambda (v)
+                                     (if (number? v)
+                                         (number->string v)
+                                       v))
+                                   (filter
+                                     (lambda (v)
+                                       (or (string? v) (number? v)))
+                                     (list cmd-name arg ...)))
+                                 " ")])
                (send-command client cmd-string))))))))
 
 ;; Status Commands
