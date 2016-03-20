@@ -6,9 +6,11 @@
   (syntax-rules ()
     ((_ (mod ...) ...)
      (begin
-       (module-use! (module-public-interface (current-module))
-                    (resolve-interface '(mod ...)))
+       (module-use!
+         (module-public-interface (current-module))
+         (resolve-interface '(mod ...)))
        ...))))
 
-(re-export-modules (mpd client)
-                   (mpd commands)) 
+(re-export-modules
+  (mpd client)
+  (mpd commands))
