@@ -3,8 +3,5 @@
 
 (define (mpd-response-list->assoc lst)
   (map (lambda (str)
-           (let ((key-value (map string-trim-both
-                                 (string-split str #\:))))
-             (cons (first key-value)
-                   (second key-value))))
-       lst))
+         (let ([key-value (map string-trim-both (string-split str #\:))])
+           (cons (first key-value) (second key-value)))) lst))
