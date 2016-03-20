@@ -1,7 +1,6 @@
 (define-module (mpd commands)
   :use-module (mpd client)
   :use-module (mpd utils)
-  :use-module (srfi srfi-1)
   :use-module (ice-9 regex)
   :use-module (ice-9 optargs))
 
