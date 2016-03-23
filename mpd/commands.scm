@@ -20,14 +20,6 @@
 (define-syntax mpd-define
   (lambda (stx)
     (syntax-case stx ()
-      ([_ (id arg ...) doc mpd_name handler]
-       #'(define*-public (id client arg ...)
-           doc
-           (let ([cmd_string (create-cmd_string
-                               (syntax->datum #'mpd_name)
-                               '()
-                               (list arg ...))])
-             (send-command client cmd_string handler))))
       ([_ (id arg ...) doc mpd_name]
        #'(define*-public (id client arg ...)
            doc
@@ -35,7 +27,15 @@
                                (syntax->datum #'mpd_name)
                                '()
                                (list arg ...))])
-             (send-command client cmd_string)))))))
+             (send-command client cmd_string))))
+      ([_ (id arg ...) doc mpd_name handler]
+       #'(define*-public (id client arg ...)
+           doc
+           (let ([cmd_string (create-cmd_string
+                               (syntax->datum #'mpd_name)
+                               '()
+                               (list arg ...))])
+             (send-command client cmd_string handler)))))))
 
 
 
@@ -56,7 +56,9 @@
 
 
 (define-public (mpdStatus::idle client . subsystems)
-  "Waits until there is a noteworthy change in one or more of MPD's subsystems (introduced with MPD 0.14). As soon as there is one, it lists all changed systems in a line in the format changed: SUBSYSTEM, where SUBSYSTEM is one of the following:
+  "idle [SUBSYSTEMS...]
+
+Waits until there is a noteworthy change in one or more of MPD's subsystems (introduced with MPD 0.14). As soon as there is one, it lists all changed systems in a line in the format changed: SUBSYSTEM, where SUBSYSTEM is one of the following:
 
  * database       : the song database has been modified after update.
  * update         : a database update has started or finished. If the database was modified during the update, the database event is also emitted.
@@ -138,55 +140,73 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
 ;; Playback options
 
 (mpd-define (mpdPlaybackOption::consume!           state)
-            "Sets consume state to STATE (ntroduced with MPD 0.15); STATE should be 0 or 1. When consume is activated, each song played is removed from playlist."
+            "consume {STATE}
+
+Sets consume state to STATE (ntroduced with MPD 0.15); STATE should be 0 or 1. When consume is activated, each song played is removed from playlist."
 
             "consume")
 
 
 (mpd-define (mpdPlaybackOption::crossfade!         seconds)
-            "Sets crossfading between songs"
+            "crossfade {SECONDS}
+
+Sets crossfading between songs"
 
             "crossfade")
 
 
 (mpd-define (mpdPlaybackOption::mix-ramp-db!       decibels)
-            "Sets the threshold at which songs will be overlapped. Like crossfading but doesn't fade the track volume, just overlaps. The songs need to have MixRamp tags added by an external tool. 0dB is the normalized maximum volume so use negative values; I prefer -17dB. In the absence of mixramp tags crossfading will be used. See http://sourceforge.net/projects/mixramp"
+            "mixrampdb {deciBels}
+
+Sets the threshold at which songs will be overlapped. Like crossfading but doesn't fade the track volume, just overlaps. The songs need to have MixRamp tags added by an external tool. 0dB is the normalized maximum volume so use negative values; I prefer -17dB. In the absence of mixramp tags crossfading will be used. See http://sourceforge.net/projects/mixramp"
 
             "mixrampdb")
 
 
 (mpd-define (mpdPlaybackOption::mix-ramp-delay!    seconds)
-            "Additional time subtracted from the overlap calculated by mixrampdb. A value of \"nan\" disables MixRamp overlapping and falls back to crossfading."
+            "mixrampdelay {SECONDS}
+
+Additional time subtracted from the overlap calculated by mixrampdb. A value of \"nan\" disables MixRamp overlapping and falls back to crossfading."
 
             "mixrampdelay")
 
 
 (mpd-define (mpdPlaybackOption::random!            state)
-            "Sets random state to STATE; STATE should be 0 or 1."
+            "random {STATE}
+
+Sets random state to STATE; STATE should be 0 or 1."
 
             "random")
 
 
 (mpd-define (mpdPlaybackOption::repeat!            state)
-            "Sets repeat state to STATE; STATE should be 0 or 1."
+            "repeat {STATE}
+
+Sets repeat state to STATE; STATE should be 0 or 1."
 
             "repeat")
 
 
 (mpd-define (mpdPlaybackOption::set-vol!           vol)
-            "Sets volume to VOL; the range of volume is 0-100."
+            "setvol {VOL}
+
+Sets volume to VOL; the range of volume is 0-100."
 
             "setvol")
 
 
 (mpd-define (mpdPlaybackOption::single!            state)
-            "Sets single state to STATE (introduced with MPD 0.15); STATE should be 0 or 1. When single is activated, playback is stopped after current song or song is repeated, if the 'repeat' mode is enabled."
+            "single {STATE}
+
+Sets single state to STATE (introduced with MPD 0.15); STATE should be 0 or 1. When single is activated, playback is stopped after current song or song is repeated, if the 'repeat' mode is enabled."
 
             "single")
 
 
 (mpd-define (mpdPlaybackOption::replay-gain-mode!  mode)
-            "Sets the replay gain mode. One of:
+            "replay_gain_mode {MODE}
+
+Sets the replay gain mode. One of:
  * off
  * track
  * album
@@ -212,13 +232,17 @@ This command triggers the options idle event."
 ;; Controlling Playback
 
 (mpd-define (mpdPlaybackControl::play         #:optional song_pos)
-            "Begins playing the playlist at song number SONG-POS"
+            "play [SONGPOS]
+
+Begins playing the playlist at song number SONG-POS"
 
             "play")
 
 
 (mpd-define (mpdPlaybackControl::play-id      song_id)
-            "Beings playing the playlist at song SONG-ID"
+            "playid [SONGID]
+
+Beings playing the playlist at song SONG-ID"
 
             "playid")
 
@@ -230,7 +254,9 @@ This command triggers the options idle event."
 
 
 (mpd-define (mpdPlaybackControl::pause        state)
-            "Toggles pause/resumes playing; STATE is 0 or 1"
+            "pause {PAUSE}
+
+Toggles pause/resumes playing; STATE is 0 or 1"
 
             "pause")
 
@@ -248,19 +274,25 @@ This command triggers the options idle event."
 
 
 (mpd-define (mpdPlaybackControl::seek         song_pos time)
-            "Seeks to position TIME (in seconds) of entry SONG-POS in the playlist"
+            "seek {SONGPOS} {TIME}
+
+Seeks to position TIME (in seconds) of entry SONG-POS in the playlist"
 
             "seek")
 
 
 (mpd-define (mpdPlaybackControl::seek-id      song_id time)
-            "Seeks to position TIME (in seconds) of SONG-ID"
+            "seekid {SONGID} {TIME}
+
+Seeks to position TIME (in seconds) of SONG-ID"
 
             "seekid")
 
 
 (mpd-define (mpdPlaybackControl::seek-current time)
-            "Seeks to the position TIME within the current song.  If passed a string prefixed with +/-, the time is relative to the current playing position"
+            "seekcur {TIME}
+
+Seeks to the position TIME within the current song.  If passed a string prefixed with +/-, the time is relative to the current playing position"
 
             "seekcur")
 
@@ -269,20 +301,24 @@ This command triggers the options idle event."
 ;; The Current Playlist
 
 (mpd-define (mpdPlaylistCurrent::add!                    uri)
-            "Adds the file URI to the playlist (directories add recursively). URI can also be a single file."
+            "add {URI}
+
+Adds the file URI to the playlist (directories add recursively). URI can also be a single file."
 
             "add")
 
 
 (mpd-define (mpdPlaylistCurrent::add-id!                 uri #:optional
                                                                position)
-            "Adds a song to the playlist (non-recursive) and returns the song id.
+            "addid {URI} [POSITION]
+
+Adds a song to the playlist (non-recursive) and returns the song id.
 
 URI is always a single file or URL. For example:
 
-addid \"foo.mp3\"
-Id: 999
-OK"
+|> addid \"foo.mp3\"
+|   Id: 999
+|   OK"
 
             "addid"
             (lambda (resp)
@@ -297,38 +333,50 @@ OK"
 
 (mpd-define (mpdPlaylistCurrent::delete!                 #:optional
                                                            pos/start_end)
-            "Deletes a song from the playlist."
+            "delete [{POS} | {START:END}]
+
+Deletes a song from the playlist."
 
             "delete")
 
 
 (mpd-define (mpdPlaylistCurrent::delete-id!              song_id)
-            "Deletes the song SONGID from the playlist"
+            "deleteid {SONGID}
+
+Deletes the song SONGID from the playlist"
 
             "deleteid")
 
 
 (mpd-define (mpdPlaylistCurrent::move!                   to #:optional
                                                               from/start_end)
-            "Moves the song at FROM or range of songs at START:END to TO in the playlist (ranges are supported since MPD 0.15)."
+            "move [{FROM} | {START:END}] {TO}
+
+Moves the song at FROM or range of songs at START:END to TO in the playlist (ranges are supported since MPD 0.15)."
 
             "move")
 
 
 (mpd-define (mpdPlaylistCurrent::move-id!                from to)
-            "Moves the song with FROM (songid) to TO (playlist index) in the playlist. If TO is negative, it is relative to the current song in the playlist (if there is one)."
+            "moveid {FROM} {TO}
+
+Moves the song with FROM (songid) to TO (playlist index) in the playlist. If TO is negative, it is relative to the current song in the playlist (if there is one)."
 
             "moveid")
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-find           tag needle)
-            "Finds songs in the current playlist with strict matching."
+            "playlistfind {TAG} {NEEDLE}
+
+Finds songs in the current playlist with strict matching."
 
             "playlistfind")
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-id             song_id)
-            "Displays a list of songs in the playlist. SONGID is optional and specifies a single song to display info for."
+            "playlistid {SONGID}
+
+Displays a list of songs in the playlist. SONGID is optional and specifies a single song to display info for."
 
             "playlistid"
             (lambda (resp)
@@ -337,7 +385,9 @@ OK"
 
 (mpd-define (mpdPlaylistCurrent::playlist-info           #:optional
                                                            song_pos/start_end)
-            "Displays a list of all songs in the playlist or, if the optional argument is given, displays information only for the song SONGPOS or the range of songs START:END (ranges are supported since MPD 0.15).
+            "playlistinfo [[SONGPOS] | [START:END]]
+
+Displays a list of all songs in the playlist or, if the optional argument is given, displays information only for the song SONGPOS or the range of songs START:END (ranges are supported since MPD 0.15).
 
 This function returns a list of association lists, each a-list representing a single file."
 
@@ -355,7 +405,9 @@ This function returns a list of association lists, each a-list representing a si
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-search         tag needle)
-            "Searches case-insensitively for partial matches in the current playlist."
+            "playlistsearch {TAG} {NEEDLE}
+
+Searches case-insensitively for partial matches in the current playlist."
 
             "playlistinfo"
             (lambda (resp)
@@ -363,7 +415,9 @@ This function returns a list of association lists, each a-list representing a si
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-changes        version)
-            "Displays changed songs currently in the playlist since VERSION.
+            "plchanges {VERSION}
+
+Displays changed songs currently in the playlist since VERSION.
 
 To detect songs that were deleted at the end of the playlist, use playlistlength returned by status command."
 
@@ -373,7 +427,9 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-changes-pos-id version)
-            "Displays changed songs currently in the playlist since VERSION. This function only returns the position and the id of the changed song, not the complete metadata. This is more bandwidth efficient.
+            "plchangesposid {VERSION}
+
+Displays changed songs currently in the playlist since VERSION. This function only returns the position and the id of the changed song, not the complete metadata. This is more bandwidth efficient.
 
 To detect songs that were deleted at the end of the playlist, use playlistlength returned by status command."
 
@@ -384,7 +440,9 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
 
 (define-public (mpdStatus::priority!                     client priority
                                                          start_end . ranges)
-  "Set the priority of the specified songs. A higher priority means that it will be played first when \"random\" mode is enabled.
+  "prio {PRIORITY} {START:END...}
+
+Set the priority of the specified songs. A higher priority means that it will be played first when \"random\" mode is enabled.
 
 A priority is an integer between 0 and 255. The default priority of new songs is 0."
 
@@ -395,7 +453,9 @@ A priority is an integer between 0 and 255. The default priority of new songs is
 
 (define-public (mpdStatus::priority-id!                  client priority
                                                          id . ids)
-  "Same as prio, but address the songs with their id."
+  "prioid {PRIORITY} {ID...}
+
+Same as prio, but address the songs with their id."
 
   (send-command
     client
@@ -403,37 +463,50 @@ A priority is an integer between 0 and 255. The default priority of new songs is
 
 
 (mpd-define (mpdPlaylistCurrent::range-id!               id start_end)
-            "Specifies the portion of the song that shall be played (since MPD 0.19). START and END are offsets in seconds (fractional seconds allowed); both are optional. Omitting both (i.e. sending just \":\") means \"remove the range, play everything\". A song that is currently playing cannot be manipulated this way."
+            "rangeid {ID} {START:END}
+
+Specifies the portion of the song that shall be played (since MPD 0.19). START and END are offsets in seconds (fractional seconds allowed); both are optional. Omitting both (i.e. sending just \":\") means \"remove the range, play everything\". A song that is currently playing cannot be manipulated this way."
 
             "rangeid")
 
 
 (mpd-define (mpdPlaylistCurrent::shuffle!                #:optional start_end)
-            "Finds songs in the current playlist with strict matching.Shuffles the current playlist. START:END is optional and specifies a range of songs."
+            "shuffle [START:END]
+
+Finds songs in the current playlist with strict matching.Shuffles the current playlist. START:END is optional and specifies a range of songs."
 
             "shuffle")
 
 
 (mpd-define (mpdPlaylistCurrent::swap!                   song1 song2)
-            "Swaps the positions of SONG1 and SONG2."
+            "swap {SONG1} {SONG2}
+
+Swaps the positions of SONG1 and SONG2."
 
             "swap")
 
 
 (mpd-define (mpdPlaylistCurrent::swap-id!                song1 song2)
-            "Swaps the positions of SONG1 and SONG2 (both song ids)."
+            "swapid {SONG1} {SONG2}
+
+Swaps the positions of SONG1 and SONG2 (both song ids)."
 
             "swapid")
 
 
 (mpd-define (mpdPlaylistCurrent::add-tag-id!             song_id tag value)
-            "Adds a tag to the specified song. Editing song tags is only possible for remote songs. This change is volatile: it may be overwritten by tags received from the server, and the data is gone when the song gets removed from the queue."
+            "addtagid {SONGID} {TAG} {VALUE}
+
+Adds a tag to the specified song. Editing song tags is only possible for remote songs. This change is volatile: it may be overwritten by tags received from the server, and the data is gone when the song gets removed from the queue."
 
             "addtagid")
 
 
-(mpd-define (mpdPlaylistCurrent::clear-tag-id!           song_id tag)
-            "Removes tags from the specified song. If TAG is not specified, then all tag values will be removed. Editing song tags is only possible for remote songs."
+(mpd-define (mpdPlaylistCurrent::clear-tag-id!           song_id #:optional
+							           tag)
+            "cleartagid {SONGID} [TAG]
+
+Removes tags from the specified song. If TAG is not specified, then all tag values will be removed. Editing song tags is only possible for remote songs."
 
             "cleartagid")
 
@@ -442,7 +515,9 @@ A priority is an integer between 0 and 255. The default priority of new songs is
 ;; Stored Playlists
 
 (mpd-define (mpdPlaylistsStored::list-playlist      name)
-            "Lists the songs in the playlist. Playlist plugins are supported."
+            "listplaylist {NAME}
+
+Lists the songs in the playlist. Playlist plugins are supported."
 
             "listplaylist"
             (lambda (resp)
@@ -450,7 +525,9 @@ A priority is an integer between 0 and 255. The default priority of new songs is
 
 
 (mpd-define (mpdPlaylistsStored::list-playlist-info name)
-            "Lists the songs with metadata in the playlist. Playlist plugins are supported."
+            "listplaylistinfo {NAME}
+
+Lists the songs with metadata in the playlist. Playlist plugins are supported."
 
             "listplaylistinfo"
             (lambda (resp)
@@ -468,13 +545,17 @@ After each playlist name the server sends its last modification time as attribut
 
 
 (mpd-define (mpdPlaylistsStored::load!              name #:optional start_end)
-            "Loads the playlist into the current queue. Playlist plugins are supported. A range may be specified to load only a part of the playlist."
+            "load {NAME} [START:END]
+
+Loads the playlist into the current queue. Playlist plugins are supported. A range may be specified to load only a part of the playlist."
 
             "load")
 
 
 (mpd-define (mpdPlaylistsStored::playlist-add!      name uri)
-            "Adds URI to the playlist NAME.m3u.
+            "playlistadd {NAME} {URI}
+
+Adds URI to the playlist NAME.m3u.
 
 NAME.m3u will be created if it does not exist."
 
@@ -482,37 +563,49 @@ NAME.m3u will be created if it does not exist."
 
 
 (mpd-define (mpdPlaylistsStored::playlist-clear!    name)
-            "Clears the playlist NAME.m3u."
+            "playlistclear {NAME}
+
+Clears the playlist NAME.m3u."
 
             "playlistclear")
 
 
 (mpd-define (mpdPlaylistsStored::playlist-delete!   name song_pos)
-            "Deletes SONGPOS from the playlist NAME.m3u."
+            "playlistdelete {NAME} {SONGPOS}
+
+Deletes SONGPOS from the playlist NAME.m3u."
 
             "playlistdelete")
 
 
 (mpd-define (mpdPlaylistsStored::playlist-move!     name song_id song_pos)
-            "Moves SONGID in the playlist NAME.m3u to the position SONGPOS."
+            "playlistmove {NAME} {SONGID} {SONGPOS}
+
+Moves SONGID in the playlist NAME.m3u to the position SONGPOS."
 
             "playlistmove")
 
 
 (mpd-define (mpdPlaylistsStored::rename!            name new_name)
-            "Renames the playlist NAME.m3u to NEW_NAME.m3u."
+            "rename {NAME} {NEW_NAME}
+
+Renames the playlist NAME.m3u to NEW_NAME.m3u."
 
             "rename")
 
 
 (mpd-define (mpdPlaylistsStored::remove!            name)
-            "Removes the playlist NAME.m3u from the playlist directory."
+            "rm {NAME}
+
+Removes the playlist NAME.m3u from the playlist directory."
 
             "rm")
 
 
 (mpd-define (mpdPlaylistsStored::save!              name)
-            "Saves the current playlist to NAME.m3u in the playlist directory."
+            "save {NAME}
+
+Saves the current playlist to NAME.m3u in the playlist directory."
 
             "save")
 
@@ -521,11 +614,13 @@ NAME.m3u will be created if it does not exist."
 ;; The Music Database
 
 (define-public (mpdDatabase::count                client tag needle . rest)
-  "Counts the number of songs and their total playtime in the db matching TAG exactly.
+  "count {TAG} {NEEDLE} [...] [group] [GROUPTYPE]
+
+Counts the number of songs and their total playtime in the db matching TAG exactly.
 
 The group keyword may be used to group the results by a tag. The following prints per-artist counts:
 
-count group artist
+|> count group artist
 
 At the moment, – if you wish to specify a grouptype – you'll have to provide the \"group\" word yourself as the second-to-last argument to count."
 
@@ -537,7 +632,9 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
 
 
 (define-public (mpdDatabase::find                 client type what . rest)
-  "Finds songs in the db that are exactly WHAT. TYPE can be any tag supported by MPD, or one of the special parameters:
+  "find {TYPE} {WHAT} [...] [window START:END]
+
+Finds songs in the db that are exactly WHAT. TYPE can be any tag supported by MPD, or one of the special parameters:
 
  * any           : checks all tag values
  * file          : checks the full path (relative to the music directory)
@@ -558,7 +655,9 @@ At the moment, – if you wish to specify a window range – you'll have to prov
 
 
 (define-public (mpdDatabase::find-add!            client type what . rest)
-  "Finds songs in the db that are exactly WHAT and adds them to current playlist. Parameters have the same meaning as for find."
+  "findadd {TYPE} {WHAT} [...]
+
+Finds songs in the db that are exactly WHAT and adds them to current playlist. Parameters have the same meaning as for find."
 
   (send-command
     client
@@ -577,7 +676,7 @@ Additional arguments may specify a filter like the one in the find command.
 
 The group keyword may be used (repeatedly) to group the results by one or more tags. The following example lists all album names, grouped by their respective (album) artist:
 
-list album group albumartist
+|> list album group albumartist
 
 At the moment, – if you wish to specify a grouptype – you'll have to provide the \"group\" word yourself as the second-to-last argument to count."
 
@@ -589,7 +688,9 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
 
 
 (mpd-define (mpdDatabase::list-all                #:optional uri)
-            "Lists all songs and directories in URI.
+            "listall [URI]
+
+Lists all songs and directories in URI.
 
 Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something."
 
@@ -599,7 +700,9 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
 
 
 (mpd-define (mpdDatabase::list-all-info           #:optional uri)
-            "Same as listall, except it also returns metadata info in the same format as lsinfo.
+            "listallinfo [URI]
+
+Same as listall, except it also returns metadata info in the same format as lsinfo.
 
 Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something."
 
@@ -609,7 +712,9 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
 
 
 (mpd-define (mpdDatabase::list-files              #:optional uri)
-            "Lists the contents of the directory URI, including files are not recognized by MPD. URI can be a path relative to the music directory or an URI understood by one of the storage plugins. The response contains at least one line for each directory entry with the prefix \"file: \" or \"directory: \", and may be followed by file attributes such as \"Last-Modified\" and \"size\".
+            "listfiles [URI]
+
+Lists the contents of the directory URI, including files are not recognized by MPD. URI can be a path relative to the music directory or an URI understood by one of the storage plugins. The response contains at least one line for each directory entry with the prefix \"file: \" or \"directory: \", and may be followed by file attributes such as \"Last-Modified\" and \"size\".
 
 For example, \"smb://SERVER\" returns a list of all shares on the given SMB/CIFS server; \"nfs://servername/path\" obtains a directory listing from the NFS server."
 
@@ -619,7 +724,9 @@ For example, \"smb://SERVER\" returns a list of all shares on the given SMB/CIFS
 
 
 (mpd-define (mpdDatabase::ls-info                 #:optional uri)
-            "Lists the contents of the directory URI.
+            "lsinfo [URI]
+
+Lists the contents of the directory URI.
 
 When listing the root directory, this currently returns the list of stored playlists. This behavior is deprecated; use \"listplaylists\" instead.
 
@@ -633,7 +740,9 @@ Clients that are connected via UNIX domain socket may use this command to read t
 
 
 (mpd-define (mpdDatabase::read-comments           #:optional uri)
-            "Read \"comments\" (i.e. key-value pairs) from the file specified by \"URI\". This \"URI\" can be a path relative to the music directory or an absolute path.
+            "readcomments [URI]
+
+Read \"comments\" (i.e. key-value pairs) from the file specified by \"URI\". This \"URI\" can be a path relative to the music directory or an absolute path.
 
 This command may be used to list metadata of remote files (e.g. URI beginning with \"http://\" or \"smb://\").
 
@@ -661,7 +770,9 @@ At the moment, – if you wish to specify a window range – you'll have to prov
 
 
 (mpd-define (mpdDatabase::search-add!             type what)
-            "Searches for any song that contains WHAT in tag TYPE and adds them to current playlist.
+            "searchadd {TYPE} {WHAT} [...]
+
+Searches for any song that contains WHAT in tag TYPE and adds them to current playlist.
 
 Parameters have the same meaning as for find, except that search is not case sensitive."
 
@@ -694,7 +805,9 @@ Parameters have the same meaning as for find, except that search is not case sen
 
 
 (mpd-define (mpdDatabase::update!                 #:optional uri)
-            "Updates the music database: find new files, remove deleted files, update modified files.
+            "update [URI]
+
+Updates the music database: find new files, remove deleted files, update modified files.
 
 URI is a particular directory or song/file to update. If you do not specify it, everything is updated.
 
@@ -706,7 +819,9 @@ Prints \"updating_db: JOBID\" where JOBID is a positive number identifying the u
 
 
 (mpd-define (mpdDatabase::rescan!                 uri)
-            "Same as update, but also rescans unmodified files."
+            "rescan [URI]
+
+Same as update, but also rescans unmodified files."
 
             "rescan"
             (lambda (resp)
@@ -717,17 +832,21 @@ Prints \"updating_db: JOBID\" where JOBID is a positive number identifying the u
 ;; Mounts and neighbors
 
 (mpd-define (mpdMounts::mount         path uri)
-            "Mount the specified remote storage URI at the given path. Example:
+            "mount {PATH} {URI}
 
-mount foo nfs://192.168.1.4/export/mp3"
+Mount the specified remote storage URI at the given path. Example:
+
+|> mount foo nfs://192.168.1.4/export/mp3"
 
             "mount")
 
 
 (mpd-define (mpdMounts::unmount       path)
-            "Unmounts the specified path. Example:
+            "unmount {PATH}
 
-unmount foo"
+Unmounts the specified path. Example:
+
+|> unmount foo"
 
             "unmount")
 
@@ -735,12 +854,12 @@ unmount foo"
 (mpd-define (mpdMounts::list-mounts   )
             "Queries a list of all mounts. By default, this contains just the configured music_directory. Example:
 
-listmounts
-mount: 
-storage: /home/foo/music
-mount: foo
-storage: nfs://192.168.1.4/export/mp3
-OK"
+|> listmounts
+|   mount: 
+|   storage: /home/foo/music
+|   mount: foo
+|   storage: nfs://192.168.1.4/export/mp3
+|   OK"
 
             "listmounts"
             (lambda (resp)
@@ -750,10 +869,10 @@ OK"
 (mpd-define (mpdMounts::list-neighbors)
             "Queries a list of \"neighbors\" (e.g. accessible file servers on the local net). Items on that list may be used with the mount command. Example:
 
-listneighbors
-neighbor: smb://FOO
-name: FOO (Samba 4.1.11-Debian)
-OK"
+|> listneighbors
+|   neighbor: smb://FOO
+|   name: FOO (Samba 4.1.11-Debian)
+|   OK"
 
             "unmount"
             (lambda (resp)
@@ -764,7 +883,9 @@ OK"
 ;; Stickers
 
 (mpd-define (mpdStickers::get     type uri name)
-            "Reads a sticker value for the specified object."
+            "sticker get {TYPE} {URI} {NAME}
+
+Reads a sticker value for the specified object."
 
             "sticker get"
             (lambda (resp)
@@ -772,19 +893,25 @@ OK"
 
 
 (mpd-define (mpdStickers::set!    type uri name value)
-            "Adds a sticker value to the specified object. If a sticker item with that name already exists, it is replaced."
+            "sticker set {TYPE} {URI} {NAME} {VALUE}
+
+Adds a sticker value to the specified object. If a sticker item with that name already exists, it is replaced."
 
             "sticker set")
 
 
 (mpd-define (mpdStickers::delete! type uri #:optional name)
-            "Deletes a sticker value from the specified object. If you do not specify a sticker name, all sticker values are deleted."
+            "sticker delete {TYPE} {URI} [NAME]
+
+Deletes a sticker value from the specified object. If you do not specify a sticker name, all sticker values are deleted."
 
             "sticker delete")
 
 
 (mpd-define (mpdStickers::list    type uri)
-            "Lists the stickers for the specified object."
+            "sticker list {TYPE} {URI}
+
+Lists the stickers for the specified object."
 
             "sticker list"
             (lambda (resp)
@@ -792,7 +919,9 @@ OK"
 
 
 (mpd-define (mpdStickers::find    type uri name)
-            "Searches the sticker database for stickers with the specified name, below the specified directory (URI). For each matching song, it prints the URI and that one sticker's value."
+            "sticker find {TYPE} {URI} {NAME}
+
+Searches the sticker database for stickers with the specified name, below the specified directory (URI). For each matching song, it prints the URI and that one sticker's value."
 
             "sticker find"
             (lambda (resp)
@@ -800,7 +929,9 @@ OK"
 
 
 (mpd-define (mpdStickers::find>=< type uri name op value)
-            "Searches for stickers with the given value.
+            "sticker find {TYPE} {URI} {NAME} = {VALUE}
+
+Searches for stickers with the given value.
 
 Other supported operators are: \"<\", \">\""
 
@@ -825,7 +956,9 @@ Other supported operators are: \"<\", \">\""
 
 
 (mpd-define (mpdConnection::password password)
-            "This is used for authentication with the server. PASSWORD is simply the plaintext password."
+            "password {PASSWORD}
+
+This is used for authentication with the server. PASSWORD is simply the plaintext password."
 
             "password")
 
@@ -842,19 +975,25 @@ Other supported operators are: \"<\", \">\""
 ;; Audio output devices
 
 (mpd-define (mpdAudioOutput::disable-output! id)
-            "Turns an output off."
+            "disableoutput {ID}
+
+Turns an output off."
 
             "disableoutput")
 
 
 (mpd-define (mpdAudioOutput::enable-output!  id)
-            "Turns an output on."
+            "enableoutput {ID}
+
+Turns an output on."
 
             "enableoutput")
 
 
 (mpd-define (mpdAudioOutput::toggle-output!  id)
-            "Turns an output on or off, depending on the current state."
+            "toggleoutput {ID}
+
+Turns an output on or off, depending on the current state."
 
             "toggleoutput")
 
@@ -862,10 +1001,10 @@ Other supported operators are: \"<\", \">\""
 (mpd-define (mpdAudioOutput::outputs         )
             "Shows information about all outputs.
 
-outputid: 0
-outputname: My ALSA Device
-outputenabled: 0
-OK
+|   outputid: 0
+|   outputname: My ALSA Device
+|   outputenabled: 0
+|   OK
 
 Return information:
 
@@ -928,12 +1067,12 @@ The following response attributes are available:
 (mpd-define (mpdAudioOutput::decoders    )
             "Print a list of decoder plugins, followed by their supported suffixes and MIME types. Example response:
 
-plugin: mad
-suffix: mp3
-suffix: mp2
-mime_type: audio/mpeg
-plugin: mpcdec
-suffix: mpc"
+|   plugin: mad
+|   suffix: mp3
+|   suffix: mp2
+|   mime_type: audio/mpeg
+|   plugin: mpcdec
+|   suffix: mpc"
 
             "decoders"
             (lambda (resp)
@@ -944,13 +1083,17 @@ suffix: mpc"
 ;; Client to client
 
 (mpd-define (mpdAudioOutput::subscribe    name)
-            "Subscribe to a channel. The channel is created if it does not exist already. The name may consist of alphanumeric ASCII characters plus underscore, dash, dot and colon."
+            "subscribe {NAME}
+
+Subscribe to a channel. The channel is created if it does not exist already. The name may consist of alphanumeric ASCII characters plus underscore, dash, dot and colon."
 
             "subscribe")
 
 
 (mpd-define (mpdAudioOutput::unsubscribe  name)
-            "Unsubscribe from a channel."
+            "unsubscribe {NAME}
+
+Unsubscribe from a channel."
 
             "unsubscribe")
 
@@ -972,7 +1115,9 @@ suffix: mpc"
 
 
 (mpd-define (mpdAudioOutput::send-message channel text)
-            "Send a message to the specified channel."
+            "sendmessage {CHANNEL} {TEXT}
+
+Send a message to the specified channel."
 
             "sendmessage")
 
