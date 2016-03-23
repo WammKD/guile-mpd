@@ -77,12 +77,14 @@
                     [lines '()])
            (if (string=? "OK" line)
                (return (reverse lines))
-             (loop (read-line sock) (cons (let ([i (string-index line #\:)])
+             (loop (read-line sock) (cons (let* ([i   (string-index line #\:)]
+                                                 [s2 (substring line (+ i 2))]
+                                                 [n?      (string->number s2)])
                                             (if i
                                                 (cons
                                                   (string->symbol
                                                     (substring line 0 i))
-                                                  (substring line (+ i 2)))
+                                                  (if n? n? s2))
                                               line)) lines)))))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
