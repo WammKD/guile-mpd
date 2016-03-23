@@ -5,12 +5,12 @@
   :use-module (ice-9 regex)
   :use-module (ice-9 optargs))
 
+(define (number?->string n)
+    (if (number? n) (number->string n) n))
+
 (define (filter/convert-strings/nums l)
-  (map (lambda (v)
-         (if (number? v)
-             (number->string v)
-           v)) (filter (lambda (v)
-                         (or (string? v) (number? v))) l)))
+  (map number?->string (filter (lambda (v)
+				 (or (string? v) (number? v))) l)))
 
 (define (create-cmd_string command rest . args)
   (string-join
@@ -28,12 +28,26 @@
                                '()
                                (list arg ...))])
              (send-command client cmd_string))))
-      ([_ (id arg ...) doc mpd_name handler]
+      ([_ (id arg ...) doc mpd_name #f handler]
        #'(define*-public (id client arg ...)
            doc
            (let ([cmd_string (create-cmd_string
                                (syntax->datum #'mpd_name)
                                '()
+                               (list arg ...))])
+             (send-command client cmd_string handler))))
+      ([_ (id arg ...) doc mpd_name #t creator]
+       #'(define*-public (id client arg ...)
+           doc
+           (let ([cmd_string (creator
+                               (syntax->datum #'mpd_name)
+                               (list arg ...))])
+             (send-command client cmd_string))))
+      ([_ (id arg ...) doc mpd_name creator handler]
+       #'(define*-public (id client arg ...)
+           doc
+           (let ([cmd_string (creator
+                               (syntax->datum #'mpd_name)
                                (list arg ...))])
              (send-command client cmd_string handler)))))))
 
@@ -51,6 +65,7 @@
             "Displays the song info of the current song (same song that is identified in status)."
             
             "currentsong"
+	    #f
             (lambda (resp)
               resp))
 
@@ -116,6 +131,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
  * error         : if there is an error, returns message here"
 
             "status"
+	    #f
             (lambda (resp)
               resp))
 
@@ -132,6 +148,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
  * playtime   : time length of music played"
 
             "stats"
+	    #f
             (lambda (resp)
               resp))
 
@@ -321,6 +338,7 @@ URI is always a single file or URL. For example:
 |   OK"
 
             "addid"
+	    #f
             (lambda (resp)
               resp))
 
@@ -332,12 +350,20 @@ URI is always a single file or URL. For example:
 
 
 (mpd-define (mpdPlaylistCurrent::delete!                 #:optional
-                                                           pos/start_end)
+                                                           pos/start end)
             "delete [{POS} | {START:END}]
 
 Deletes a song from the playlist."
 
-            "delete")
+            "delete"
+	    #t
+	    (lambda (command l)
+	      (let* ([p/s (number?->string  (cadr l))]
+		     [  e (number?->string (caddr l))])
+		(string-join
+		  (cons command (if p/s (if e (list (string-append p/s ":" e))
+					  (list p/s)) '()))
+		  " "))))
 
 
 (mpd-define (mpdPlaylistCurrent::delete-id!              song_id)
@@ -349,12 +375,25 @@ Deletes the song SONGID from the playlist"
 
 
 (mpd-define (mpdPlaylistCurrent::move!                   to #:optional
-                                                              from/start_end)
+                                                              from/start end)
             "move [{FROM} | {START:END}] {TO}
 
 Moves the song at FROM or range of songs at START:END to TO in the playlist (ranges are supported since MPD 0.15)."
 
-            "move")
+            "move"
+	    #t
+	    (lambda (command l)
+	      (let* ([  t (number?->string    (car l))]
+		     [f/s (number?->string  (caddr l))]
+		     [  e (number?->string (cadddr l))])
+		(string-join
+		  (cons command (cons t (if f/s (if e
+						    (list (string-append
+							    f/s
+							    ":"
+							    e))
+						  (list f/s)) '())))
+		  " "))))
 
 
 (mpd-define (mpdPlaylistCurrent::move-id!                from to)
@@ -379,12 +418,13 @@ Finds songs in the current playlist with strict matching."
 Displays a list of songs in the playlist. SONGID is optional and specifies a single song to display info for."
 
             "playlistid"
+	    #f
             (lambda (resp)
               resp))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-info           #:optional
-                                                           song_pos/start_end)
+                                                           song_pos/start end)
             "playlistinfo [[SONGPOS] | [START:END]]
 
 Displays a list of all songs in the playlist or, if the optional argument is given, displays information only for the song SONGPOS or the range of songs START:END (ranges are supported since MPD 0.15).
@@ -392,6 +432,13 @@ Displays a list of all songs in the playlist or, if the optional argument is giv
 This function returns a list of association lists, each a-list representing a single file."
 
             "playlistinfo"
+	    (lambda (command l)
+ 	      (let ([p/s (number?->string  (cadr l))]
+		    [  e (number?->string (caddr l))])
+		(string-join
+		  (cons command (if p/s (if e (list (string-append p/s ":" e))
+					  (list p/s)) '()))
+		  " ")))
             (lambda (resp)
               (reverse (fold
                          (lambda (info_element knil)
@@ -410,6 +457,7 @@ This function returns a list of association lists, each a-list representing a si
 Searches case-insensitively for partial matches in the current playlist."
 
             "playlistinfo"
+	    #f
             (lambda (resp)
               resp))
 
@@ -422,6 +470,7 @@ Displays changed songs currently in the playlist since VERSION.
 To detect songs that were deleted at the end of the playlist, use playlistlength returned by status command."
 
             "plchanges"
+	    #f
             (lambda (resp)
               resp))
 
@@ -434,21 +483,37 @@ Displays changed songs currently in the playlist since VERSION. This function on
 To detect songs that were deleted at the end of the playlist, use playlistlength returned by status command."
 
             "plchangesposid"
+	    #f
             (lambda (resp)
               resp))
 
 
-(define-public (mpdStatus::priority!                     client priority
-                                                         start_end . ranges)
+;; Unbearably ugly; refine the code, at some point
+(define*-public (mpdStatus::priority!                    client priority
+                                                         start end . ranges)
   "prio {PRIORITY} {START:END...}
 
 Set the priority of the specified songs. A higher priority means that it will be played first when \"random\" mode is enabled.
 
 A priority is an integer between 0 and 255. The default priority of new songs is 0."
-
+  
   (send-command
     client
-    (create-cmd_string "prio" ranges priority start_end)))
+    (create-cmd_string
+      "prio"
+      (fold
+        (lambda (kons knil)
+	  (if (or (null? knil) (not (=
+				      (string-rindex (car knil) #\:)
+				      (1- (string-length (car knil))))))
+	      (cons (string-append (number?->string kons) ":") knil)
+	    (cons (string-append
+		    (car knil)
+		    (number?->string kons)) (cdr knil))))
+	'()
+	ranges)
+      priority
+      (string-append (number?->string start) ":" (number?->string end)))))
 
 
 (define-public (mpdStatus::priority-id!                  client priority
@@ -462,20 +527,38 @@ Same as prio, but address the songs with their id."
     (create-cmd_string "prioid" ids priority id)))
 
 
-(mpd-define (mpdPlaylistCurrent::range-id!               id start_end)
+(mpd-define (mpdPlaylistCurrent::range-id!               id start #:optional
+							            end)
             "rangeid {ID} {START:END}
 
 Specifies the portion of the song that shall be played (since MPD 0.19). START and END are offsets in seconds (fractional seconds allowed); both are optional. Omitting both (i.e. sending just \":\") means \"remove the range, play everything\". A song that is currently playing cannot be manipulated this way."
 
-            "rangeid")
+            "rangeid"
+	    #t
+	    (lambda (command l)
+ 	      (let ([i (number?->string    (car l))]
+		    [s (number?->string   (cadr l))]
+		    [e (number?->string (cadddr l))])
+		(string-join            ;; Potentially only need start
+		  (cons command (cons i (if e (list (string-append s ":" e))
+					  (list s))))
+		  " "))))
 
 
-(mpd-define (mpdPlaylistCurrent::shuffle!                #:optional start_end)
+(mpd-define (mpdPlaylistCurrent::shuffle!                #:optional start end)
             "shuffle [START:END]
 
 Finds songs in the current playlist with strict matching.Shuffles the current playlist. START:END is optional and specifies a range of songs."
 
-            "shuffle")
+            "shuffle"
+	    #t
+	    (lambda (command l)
+ 	      (let ([s (number?->string  (cadr l))]
+		    [e (number?->string (caddr l))])
+		(string-join
+		  (cons command (if s (if e (list (string-append s ":" e))
+					(list s)) '()))
+		  " "))))
 
 
 (mpd-define (mpdPlaylistCurrent::swap!                   song1 song2)
@@ -520,6 +603,7 @@ Removes tags from the specified song. If TAG is not specified, then all tag valu
 Lists the songs in the playlist. Playlist plugins are supported."
 
             "listplaylist"
+	    #f
             (lambda (resp)
               resp))
 
@@ -530,6 +614,7 @@ Lists the songs in the playlist. Playlist plugins are supported."
 Lists the songs with metadata in the playlist. Playlist plugins are supported."
 
             "listplaylistinfo"
+	    #f
             (lambda (resp)
               resp))
 
@@ -540,16 +625,27 @@ Lists the songs with metadata in the playlist. Playlist plugins are supported."
 After each playlist name the server sends its last modification time as attribute \"Last-Modified\" in ISO 8601 format. To avoid problems due to clock differences between clients and the server, clients should not compare this value with their local clock."
 
             "listplaylists"
+	    #f
             (lambda (resp)
               resp))
 
 
-(mpd-define (mpdPlaylistsStored::load!              name #:optional start_end)
+(mpd-define (mpdPlaylistsStored::load!              name #:optional start end)
             "load {NAME} [START:END]
 
 Loads the playlist into the current queue. Playlist plugins are supported. A range may be specified to load only a part of the playlist."
 
-            "load")
+            "load"
+	    #t
+	    (lambda (command l)
+ 	      (let ([n (number?->string    (car l))]
+		    [s (number?->string  (caddr l))]
+		    [e (number?->string (cadddr l))])
+		(string-join
+		  (cons command (cons n (if s (if e (list
+						      (string-append s ":" e))
+						(list s)) '())))
+		  " "))))
 
 
 (mpd-define (mpdPlaylistsStored::playlist-add!      name uri)
@@ -695,6 +791,7 @@ Lists all songs and directories in URI.
 Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something."
 
             "listall"
+	    #f
             (lambda (resp)
               resp))
 
@@ -707,6 +804,7 @@ Same as listall, except it also returns metadata info in the same format as lsin
 Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something."
 
             "listallinfo"
+	    #f
             (lambda (resp)
               resp))
 
@@ -719,6 +817,7 @@ Lists the contents of the directory URI, including files are not recognized by M
 For example, \"smb://SERVER\" returns a list of all shares on the given SMB/CIFS server; \"nfs://servername/path\" obtains a directory listing from the NFS server."
 
             "listfiles"
+	    #f
             (lambda (resp)
               resp))
 
@@ -735,6 +834,7 @@ This command may be used to list metadata of remote files (e.g. URI beginning wi
 Clients that are connected via UNIX domain socket may use this command to read the tags of an arbitrary local file (URI is an absolute path)."
 
             "lsinfo"
+	    #f
             (lambda (resp)
               resp))
 
@@ -751,6 +851,7 @@ The response consists of lines in the form \"KEY: VALUE\". Comments with suspici
 The meaning of these depends on the codec, and not all decoder plugins support it. For example, on Ogg files, this lists the Vorbis comments."
 
             "readcomments"
+	    #f
             (lambda (resp)
               resp))
 
@@ -814,6 +915,7 @@ URI is a particular directory or song/file to update. If you do not specify it, 
 Prints \"updating_db: JOBID\" where JOBID is a positive number identifying the update job. You can read the current job id in the status response."
 
             "update"
+	    #f
             (lambda (resp)
               resp))
 
@@ -824,6 +926,7 @@ Prints \"updating_db: JOBID\" where JOBID is a positive number identifying the u
 Same as update, but also rescans unmodified files."
 
             "rescan"
+	    #f
             (lambda (resp)
               resp))
 
@@ -862,6 +965,7 @@ Unmounts the specified path. Example:
 |   OK"
 
             "listmounts"
+	    #f
             (lambda (resp)
               resp))
 
@@ -875,6 +979,7 @@ Unmounts the specified path. Example:
 |   OK"
 
             "unmount"
+	    #f
             (lambda (resp)
               resp))
 
@@ -888,6 +993,7 @@ Unmounts the specified path. Example:
 Reads a sticker value for the specified object."
 
             "sticker get"
+	    #f
             (lambda (resp)
               resp))
 
@@ -914,6 +1020,7 @@ Deletes a sticker value from the specified object. If you do not specify a stick
 Lists the stickers for the specified object."
 
             "sticker list"
+	    #f
             (lambda (resp)
               resp))
 
@@ -924,6 +1031,7 @@ Lists the stickers for the specified object."
 Searches the sticker database for stickers with the specified name, below the specified directory (URI). For each matching song, it prints the URI and that one sticker's value."
 
             "sticker find"
+	    #f
             (lambda (resp)
               resp))
 
@@ -936,6 +1044,7 @@ Searches for stickers with the given value.
 Other supported operators are: \"<\", \">\""
 
             "sticker find"
+	    #f
             (lambda (resp)
               resp))
 
@@ -967,6 +1076,7 @@ This is used for authentication with the server. PASSWORD is simply the plaintex
             "Does nothing but return \"OK\"."
 
             "ping"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1013,6 +1123,7 @@ Return information:
  * outputenabled: Status of the output. 0 if disabled, 1 if enabled."
 
             "outputs"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1028,6 +1139,7 @@ The following response attributes are available:
  * music_directory: The absolute path of the music directory."
 
             "config"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1036,6 +1148,7 @@ The following response attributes are available:
             "Shows which commands the current user has access to."
 
             "commands"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1044,6 +1157,7 @@ The following response attributes are available:
             "Shows which commands the current user does not have access to."
 
             "notcommands"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1052,6 +1166,7 @@ The following response attributes are available:
             "Shows a list of available song metadata."
 
             "tagtypes"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1060,6 +1175,7 @@ The following response attributes are available:
             "Gets a list of available URL handlers."
 
             "urlhandlers"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1075,6 +1191,7 @@ The following response attributes are available:
 |   suffix: mpc"
 
             "decoders"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1102,6 +1219,7 @@ Unsubscribe from a channel."
             "Obtain a list of all channels. The response is a list of \"channel:\" lines."
 
             "channels"
+	    #f
             (lambda (resp)
               resp))
 
@@ -1110,6 +1228,7 @@ Unsubscribe from a channel."
             "Reads messages for this client. The response is a list of \"channel:\" and \"message:\" lines."
 
             "readmessages"
+	    #f
             (lambda (resp)
               resp))
 
