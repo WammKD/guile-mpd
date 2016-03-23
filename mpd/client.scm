@@ -77,7 +77,13 @@
                     [lines '()])
            (if (string=? "OK" line)
                (return (reverse lines))
-             (loop (read-line sock) (cons line lines)))))))))
+             (loop (read-line sock) (cons (let ([i (string-index line #\:)])
+                                            (if i
+                                                (cons
+                                                  (string->symbol
+                                                    (substring line 0 i))
+                                                  (substring line (+ i 2)))
+                                              line)) lines)))))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
   (write-line str (mpd-socket client))
