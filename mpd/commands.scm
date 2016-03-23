@@ -12,24 +12,29 @@
            v)) (filter (lambda (v)
                          (or (string? v) (number? v))) l)))
 
+(define (create-cmd_string command rest . args)
+  (string-join
+    (cons command (filter/convert-strings/nums (append args rest)))
+    " "))
+
 (define-syntax mpd-define
   (lambda (stx)
     (syntax-case stx ()
       ([_ (id arg ...) doc mpd_name handler]
        #'(define*-public (id client arg ...)
            doc
-           (let ([cmd_string (string-join
-                               (filter/convert-strings/nums
-                                 (list (syntax->datum #'mpd_name) arg ...))
-                               " ")])
+           (let ([cmd_string (create-cmd_string
+                               (syntax->datum #'mpd_name)
+                               '()
+                               (list arg ...))])
              (send-command client cmd_string handler))))
       ([_ (id arg ...) doc mpd_name]
        #'(define*-public (id client arg ...)
            doc
-           (let ([cmd_string (string-join
-                               (filter/convert-strings/nums
-                                 (list (syntax->datum #'mpd_name) arg ...))
-                               " ")])
+           (let ([cmd_string (create-cmd_string
+                               (syntax->datum #'mpd_name)
+                               '()
+                               (list arg ...))])
              (send-command client cmd_string)))))))
 
 
@@ -71,7 +76,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
 
   (send-command
     client
-    (string-join (cons "idle" (filter/convert-strings/nums subsystems)) " ")
+    (create-cmd_string "idle" subsystems)
     (lambda (resp)
       resp)))
 
@@ -385,11 +390,7 @@ A priority is an integer between 0 and 255. The default priority of new songs is
 
   (send-command
     client
-    (string-join
-      (cons "prio" (filter/convert-strings/nums (cons priority (cons
-                                                                 start_end
-                                                                 ranges))))
-      " ")))
+    (create-cmd_string "prio" ranges priority start_end)))
 
 
 (define-public (mpdStatus::priority-id!                  client priority
@@ -398,8 +399,7 @@ A priority is an integer between 0 and 255. The default priority of new songs is
 
   (send-command
     client
-    (string-join (cons "prioid" (filter/convert-strings/nums
-                                  (cons priority (cons id ids)))) " ")))
+    (create-cmd_string "prioid" ids priority id)))
 
 
 (mpd-define (mpdPlaylistCurrent::range-id!               id start_end)
@@ -520,7 +520,7 @@ NAME.m3u will be created if it does not exist."
 
 ;; The Music Database
 
-(define-public (mpdDatabase::count             client tag needle . rest)
+(define-public (mpdDatabase::count                client tag needle . rest)
   "Counts the number of songs and their total playtime in the db matching TAG exactly.
 
 The group keyword may be used to group the results by a tag. The following prints per-artist counts:
@@ -531,13 +531,12 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
 
   (send-command
     client
-    (string-join (cons "count" (filter/convert-strings/nums
-                                 (cons tag (cons needle rest)))) " ")
+    (create-cmd_string "count" rest tag needle)
     (lambda (resp)
       resp)))
 
 
-(define-public (mpdDatabase::find              client type what . rest)
+(define-public (mpdDatabase::find                 client type what . rest)
   "Finds songs in the db that are exactly WHAT. TYPE can be any tag supported by MPD, or one of the special parameters:
 
  * any           : checks all tag values
@@ -553,25 +552,23 @@ At the moment, – if you wish to specify a window range – you'll have to prov
 
   (send-command
     client
-    (string-join (cons "find" (filter/convert-strings/nums
-                                (cons type (cons what rest)))) " ")
+    (create-cmd_string "find" rest type what)
     (lambda (resp)
       resp)))
 
 
-(define-public (mpdDatabase::find-add!         client type what . rest)
+(define-public (mpdDatabase::find-add!            client type what . rest)
   "Finds songs in the db that are exactly WHAT and adds them to current playlist. Parameters have the same meaning as for find."
 
   (send-command
     client
-    (string-join (cons "findadd" (filter/convert-strings/nums
-                                   (cons type (cons what rest)))) " ")))
+    (create-cmd_string "findadd" rest type what)))
 
 
-(define*-public (mpdDatabase::list              client type #:optional
-                                                              filter_type
-                                                              filter_what
-                                                . rest)
+(define*-public (mpdDatabase::list                client type #:optional
+                                                                filter_type
+                                                                filter_what
+                                                  . rest)
   "list {TYPE} [FILTERTYPE] [FILTERWHAT] [...] [group] [GROUPTYPE] [...]
 
 Lists unique tags values of the specified type. TYPE can be any tag supported by MPD or file.
@@ -586,13 +583,12 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
 
   (send-command
     client
-    (string-join (cons "list" (filter/convert-strings/nums
-                                (fold cons rest '(filter_what filter_type type)))) " ")
+    (create-cmd_string "list" rest type filter_type filter_what)
     (lambda (resp)
       resp)))
 
 
-(mpd-define (mpdDatabase::list-all             #:optional uri)
+(mpd-define (mpdDatabase::list-all                #:optional uri)
             "Lists all songs and directories in URI.
 
 Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something."
@@ -602,7 +598,7 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
               resp))
 
 
-(mpd-define (mpdDatabase::list-all-info        #:optional uri)
+(mpd-define (mpdDatabase::list-all-info           #:optional uri)
             "Same as listall, except it also returns metadata info in the same format as lsinfo.
 
 Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something."
@@ -612,7 +608,7 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
               resp))
 
 
-(mpd-define (mpdDatabase::list-files           #:optional uri)
+(mpd-define (mpdDatabase::list-files              #:optional uri)
             "Lists the contents of the directory URI, including files are not recognized by MPD. URI can be a path relative to the music directory or an URI understood by one of the storage plugins. The response contains at least one line for each directory entry with the prefix \"file: \" or \"directory: \", and may be followed by file attributes such as \"Last-Modified\" and \"size\".
 
 For example, \"smb://SERVER\" returns a list of all shares on the given SMB/CIFS server; \"nfs://servername/path\" obtains a directory listing from the NFS server."
@@ -622,7 +618,7 @@ For example, \"smb://SERVER\" returns a list of all shares on the given SMB/CIFS
               resp))
 
 
-(mpd-define (mpdDatabase::ls-info              #:optional uri)
+(mpd-define (mpdDatabase::ls-info                 #:optional uri)
             "Lists the contents of the directory URI.
 
 When listing the root directory, this currently returns the list of stored playlists. This behavior is deprecated; use \"listplaylists\" instead.
@@ -636,7 +632,7 @@ Clients that are connected via UNIX domain socket may use this command to read t
               resp))
 
 
-(mpd-define (mpdDatabase::read-comments        #:optional uri)
+(mpd-define (mpdDatabase::read-comments           #:optional uri)
             "Read \"comments\" (i.e. key-value pairs) from the file specified by \"URI\". This \"URI\" can be a path relative to the music directory or an absolute path.
 
 This command may be used to list metadata of remote files (e.g. URI beginning with \"http://\" or \"smb://\").
@@ -650,7 +646,7 @@ The meaning of these depends on the codec, and not all decoder plugins support i
               resp))
 
 
-(define-public (mpdDatabase::search            client type what . rest)
+(define-public (mpdDatabase::search               client type what . rest)
   "search {TYPE} {WHAT} [...] [window START:END]
 
 Searches for any song that contains WHAT. Parameters have the same meaning as for find, except that search is not case sensitive.
@@ -659,31 +655,45 @@ At the moment, – if you wish to specify a window range – you'll have to prov
 
   (send-command
     client
-    (string-join (cons "search" (filter/convert-strings/nums
-                                  (cons type (cons what rest)))) " ")
+    (create-cmd_string "search" rest type what)
     (lambda (resp)
       resp)))
 
 
-(mpd-define (mpdDatabase::search-add!          type what)
+(mpd-define (mpdDatabase::search-add!             type what)
             "Searches for any song that contains WHAT in tag TYPE and adds them to current playlist.
 
 Parameters have the same meaning as for find, except that search is not case sensitive."
 
             "searchadd")
 
+(define-public (mpdDatabase::search-add!          client type what . rest)
+  "searchadd {TYPE} {WHAT} [...]
 
-(mpd-define (mpdDatabase::search-add-playlist! name type what)
-            "Searches for any song that contains WHAT in tag TYPE and adds them to the playlist named NAME.
+Searches for any song that contains WHAT in tag TYPE and adds them to current playlist.
+
+Parameters have the same meaning as for find, except that search is not case sensitive."
+
+  (send-command
+    client
+    (create-cmd_string "searchadd" rest type what)))
+
+
+(define-public (mpdDatabase::search-add-playlist! client name type what . rest)
+  "searchaddpl {NAME} {TYPE} {WHAT} [...]
+
+Searches for any song that contains WHAT in tag TYPE and adds them to the playlist named NAME.
 
 If a playlist by that name doesn't exist it is created.
 
 Parameters have the same meaning as for find, except that search is not case sensitive."
 
-            "searchaddpl")
+  (send-command
+    client
+    (create-cmd_string "searchaddpl" rest name type what)))
 
 
-(mpd-define (mpdDatabase::update!              #:optional uri)
+(mpd-define (mpdDatabase::update!                 #:optional uri)
             "Updates the music database: find new files, remove deleted files, update modified files.
 
 URI is a particular directory or song/file to update. If you do not specify it, everything is updated.
@@ -695,7 +705,7 @@ Prints \"updating_db: JOBID\" where JOBID is a positive number identifying the u
               resp))
 
 
-(mpd-define (mpdDatabase::rescan!              uri)
+(mpd-define (mpdDatabase::rescan!                 uri)
             "Same as update, but also rescans unmodified files."
 
             "rescan"
