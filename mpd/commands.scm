@@ -1,6 +1,7 @@
 (define-module (mpd commands)
   :use-module (mpd client)
   :use-module (mpd utils)
+  :use-module (srfi srfi-1)
   :use-module (ice-9 regex)
   :use-module (ice-9 optargs))
 
@@ -343,11 +344,21 @@ OK"
 
 (mpd-define (mpdPlaylistCurrent::playlist-info           #:optional
                                                            song_pos/start_end)
-            "Displays a list of all songs in the playlist, or if the optional argument is given, displays information only for the song SONGPOS or the range of songs START:END (ranges are supported since MPD 0.15)."
+            "Displays a list of all songs in the playlist or, if the optional argument is given, displays information only for the song SONGPOS or the range of songs START:END (ranges are supported since MPD 0.15).
+
+This function returns a list of association lists, each a-list representing a single file."
 
             "playlistinfo"
             (lambda (resp)
-              resp))
+              (reverse (fold
+                         (lambda (info_element knil)
+                           (if (eq? (car info_element) 'file)
+                               (cons (list info_element) knil)
+                             (cons
+                               (append (car knil) (list info_element))
+                               (cdr knil))))
+                         (list (list (car resp)))
+                         (cdr resp)))))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-search         tag needle)
