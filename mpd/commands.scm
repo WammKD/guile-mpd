@@ -56,7 +56,7 @@
               resp))
 
 
-(define*-public (mpdStatus::idle client . args)
+(define*-public (mpdStatus::idle client . subsystems)
   "Waits until there is a noteworthy change in one or more of MPD's subsystems (introduced with MPD 0.14). As soon as there is one, it lists all changed systems in a line in the format changed: SUBSYSTEM, where SUBSYSTEM is one of the following:
 
  * database       : the song database has been modified after update.
@@ -87,7 +87,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
         resp)))
 
 
-(mpd-define (status)
+(mpd-define (mpdStatus::status)
             "Reports the current status of the player and the volume level.
 
  * volume        : 0-100
