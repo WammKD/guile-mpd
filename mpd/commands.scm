@@ -547,7 +547,9 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
 
 WHAT is what to find.
 
-window can be used to query only a portion of the real response. The parameter is two zero-based record numbers; a start number and an end number."
+window can be used to query only a portion of the real response. The parameter is two zero-based record numbers; a start number and an end number.
+
+At the moment, – if you wish to specify a window range – you'll have to provide the \"window\" word yourself as the second-to-last argument to count."
 
   (send-command
     client
@@ -557,26 +559,37 @@ window can be used to query only a portion of the real response. The parameter i
       resp)))
 
 
-(mpd-define (mpdDatabase::find-add!            type what)
-            "Finds songs in the db that are exactly WHAT and adds them to current playlist. Parameters have the same meaning as for find."
+(define-public (mpdDatabase::find-add!         client type what . rest)
+  "Finds songs in the db that are exactly WHAT and adds them to current playlist. Parameters have the same meaning as for find."
 
-            "findadd")
+  (send-command
+    client
+    (string-join (cons "findadd" (filter/convert-strings/nums
+                                   (cons type (cons what rest)))) " ")))
 
 
-(mpd-define (mpdDatabase::list                 type #:optional
-                                                      filter_type filter_what
-                                                      group       group_type)
-            "Lists unique tags values of the specified type. TYPE can be any tag supported by MPD or file.
+(define*-public (mpdDatabase::list              client type #:optional
+                                                              filter_type
+                                                              filter_what
+                                                . rest)
+  "list {TYPE} [FILTERTYPE] [FILTERWHAT] [...] [group] [GROUPTYPE] [...]
+
+Lists unique tags values of the specified type. TYPE can be any tag supported by MPD or file.
 
 Additional arguments may specify a filter like the one in the find command.
 
 The group keyword may be used (repeatedly) to group the results by one or more tags. The following example lists all album names, grouped by their respective (album) artist:
 
-list album group albumartist"
+list album group albumartist
 
-            "list"
-            (lambda (resp)
-              resp))
+At the moment, – if you wish to specify a grouptype – you'll have to provide the \"group\" word yourself as the second-to-last argument to count."
+
+  (send-command
+    client
+    (string-join (cons "list" (filter/convert-strings/nums
+                                (fold cons rest '(filter_what filter_type type)))) " ")
+    (lambda (resp)
+      resp)))
 
 
 (mpd-define (mpdDatabase::list-all             #:optional uri)
@@ -637,13 +650,19 @@ The meaning of these depends on the codec, and not all decoder plugins support i
               resp))
 
 
-(mpd-define (mpdDatabase::search               type what #:optional
-                                                           window start_end)
-            "Searches for any song that contains WHAT. Parameters have the same meaning as for find, except that search is not case sensitive."
+(define-public (mpdDatabase::search            client type what . rest)
+  "search {TYPE} {WHAT} [...] [window START:END]
 
-            "search"
-            (lambda (resp)
-              resp))
+Searches for any song that contains WHAT. Parameters have the same meaning as for find, except that search is not case sensitive.
+
+At the moment, – if you wish to specify a window range – you'll have to provide the \"window\" word yourself as the second-to-last argument to count."
+
+  (send-command
+    client
+    (string-join (cons "search" (filter/convert-strings/nums
+                                  (cons type (cons what rest)))) " ")
+    (lambda (resp)
+      resp)))
 
 
 (mpd-define (mpdDatabase::search-add!          type what)
