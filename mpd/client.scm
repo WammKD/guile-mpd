@@ -73,8 +73,8 @@
    (lambda (return)
      (while #t
        (when (char-ready? sock)
-         (let loop ([line (read-line sock)]
-                    [lines '()])
+         (let loop ([line  (read-line sock)]
+                    [lines              '()])
            (if (string=? "OK" line)
                (return (reverse lines))
              (loop (read-line sock) (cons (let* ([i   (string-index line #\:)]
@@ -93,7 +93,7 @@
   (let ([response (mpd-receive (mpd-socket client))])
     (if (or (equal? handler #t) (equal? handler *unspecified*))
         handler
-      (apply handler response '()))))
+      (handler response))))
 
 (define (connected? client)
   (or (mpd-socket client) #t))
