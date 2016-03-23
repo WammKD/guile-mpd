@@ -5,6 +5,13 @@
   :use-module (ice-9 regex)
   :use-module (ice-9 optargs))
 
+(define (filter/convert-strings/nums l)
+  (map (lambda (v)
+         (if (number? v)
+             (number->string v)
+           v)) (filter (lambda (v)
+                         (or (string? v) (number? v))) l)))
+
 (define-syntax mpd-define
   (lambda (stx)
     (syntax-case stx ()
@@ -12,30 +19,16 @@
        #'(define*-public (id client arg ...)
            doc
            (let ([cmd_string (string-join
-                               (map
-                                 (lambda (v)
-                                   (if (number? v)
-                                       (number->string v)
-                                     v))
-                                 (filter
-                                   (lambda (v)
-                                     (or (string? v) (number? v)))
-                                   (list (syntax->datum #'mpd_name) arg ...)))
+                               (filter/convert-strings/nums
+                                 (list (syntax->datum #'mpd_name) arg ...))
                                " ")])
              (send-command client cmd_string handler))))
       ([_ (id arg ...) doc mpd_name]
        #'(define*-public (id client arg ...)
            doc
            (let ([cmd_string (string-join
-                               (map
-                                 (lambda (v)
-                                   (if (number? v)
-                                       (number->string v)
-                                     v))
-                                 (filter
-                                   (lambda (v)
-                                     (or (string? v) (number? v)))
-                                   (list (syntax->datum #'mpd_name) arg ...)))
+                               (filter/convert-strings/nums
+                                 (list (syntax->datum #'mpd_name) arg ...))
                                " ")])
              (send-command client cmd_string)))))))
 
@@ -57,7 +50,7 @@
               resp))
 
 
-(define*-public (mpdStatus::idle client . subsystems)
+(define-public (mpdStatus::idle client . subsystems)
   "Waits until there is a noteworthy change in one or more of MPD's subsystems (introduced with MPD 0.14). As soon as there is one, it lists all changed systems in a line in the format changed: SUBSYSTEM, where SUBSYSTEM is one of the following:
 
  * database       : the song database has been modified after update.
@@ -75,17 +68,12 @@
 While a client is waiting for idle results, the server disables timeouts, allowing a client to wait for events as long as mpd runs. The idle command can be canceled by sending the command noidle (no other commands are allowed). MPD will then leave idle mode and print results immediately; might be empty at this time.
 
 If the optional SUBSYSTEMS argument is used, MPD will only send notifications when something changed in one of the specified subsytems."
+
   (send-command
     client
-    (string-join (cons "idle" (map (lambda (v)
-                                     (if (number? v)
-                                         (number->string v)
-                                       v)) (filter
-                                             (lambda (v)
-                                               (or (string? v) (number? v)))
-                                             subsystems))) " ")
-      (lambda (resp)
-        resp)))
+    (string-join (cons "idle" (filter/convert-strings/nums subsystems)) " ")
+    (lambda (resp)
+      resp)))
 
 
 (mpd-define (mpdStatus::status)
@@ -389,42 +377,29 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
               resp))
 
 
-(define*-public (mpdStatus::priority!                    client priority
+(define-public (mpdStatus::priority!                     client priority
                                                          start_end . ranges)
   "Set the priority of the specified songs. A higher priority means that it will be played first when \"random\" mode is enabled.
 
 A priority is an integer between 0 and 255. The default priority of new songs is 0."
-  (send-command
-    client
-    (string-join (cons "prio" (map (lambda (v)
-                                     (if (number? v)
-                                         (number->string v)
-                                       v)) (filter
-                                             (lambda (v)
-                                               (or (string? v) (number? v)))
-                                             (cons priority (cons
-                                                              start_end
-                                                              ranges))))) " ")
-    (lambda (resp)
-      resp)))
 
-
-(define*-public (mpdStatus::priority-id!                 client priority
-                                                         id . ids)
-  "Same as prio, but address the songs with their id."
   (send-command
     client
     (string-join
-      (cons "prioid" (map (lambda (v)
-                            (if (number? v)
-                                (number->string v)
-                              v)) (filter
-                                    (lambda (v)
-                                      (or (string? v) (number? v)))
-                                    (cons priority (cons id ids)))))
-      " ")
-    (lambda (resp)
-      resp)))
+      (cons "prio" (filter/convert-strings/nums (cons priority (cons
+                                                                 start_end
+                                                                 ranges))))
+      " ")))
+
+
+(define-public (mpdStatus::priority-id!                  client priority
+                                                         id . ids)
+  "Same as prio, but address the songs with their id."
+
+  (send-command
+    client
+    (string-join (cons "prioid" (filter/convert-strings/nums
+                                  (cons priority (cons id ids)))) " ")))
 
 
 (mpd-define (mpdPlaylistCurrent::range-id!               id start_end)
@@ -545,22 +520,25 @@ NAME.m3u will be created if it does not exist."
 
 ;; The Music Database
 
-(mpd-define (mpdDatabase::count                tag needle #:optional
-                                                            group group_type)
-            "Counts the number of songs and their total playtime in the db matching TAG exactly.
+(define-public (mpdDatabase::count             client tag needle . rest)
+  "Counts the number of songs and their total playtime in the db matching TAG exactly.
 
 The group keyword may be used to group the results by a tag. The following prints per-artist counts:
 
-count group artist"
+count group artist
 
-            "count"
-            (lambda (resp)
-              resp))
+At the moment, – if you wish to specify a grouptype – you'll have to provide the \"group\" word yourself as the second-to-last argument to count."
+
+  (send-command
+    client
+    (string-join (cons "count" (filter/convert-strings/nums
+                                 (cons tag (cons needle rest)))) " ")
+    (lambda (resp)
+      resp)))
 
 
-(mpd-define (mpdDatabase::find                 type what #:optional
-                                                           window start_end)
-            "Finds songs in the db that are exactly WHAT. TYPE can be any tag supported by MPD, or one of the special parameters:
+(define-public (mpdDatabase::find              client type what . rest)
+  "Finds songs in the db that are exactly WHAT. TYPE can be any tag supported by MPD, or one of the special parameters:
 
  * any           : checks all tag values
  * file          : checks the full path (relative to the music directory)
@@ -571,9 +549,12 @@ WHAT is what to find.
 
 window can be used to query only a portion of the real response. The parameter is two zero-based record numbers; a start number and an end number."
 
-            "find"
-            (lambda (resp)
-              resp))
+  (send-command
+    client
+    (string-join (cons "find" (filter/convert-strings/nums
+                                (cons type (cons what rest)))) " ")
+    (lambda (resp)
+      resp)))
 
 
 (mpd-define (mpdDatabase::find-add!            type what)
