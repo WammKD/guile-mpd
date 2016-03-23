@@ -378,18 +378,42 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
               resp))
 
 
-(mpd-define (mpdPlaylistCurrent::priority!               priority start_end)
-            "Set the priority of the specified songs. A higher priority means that it will be played first when \"random\" mode is enabled.
+(define*-public (mpdStatus::priority!                    client priority
+                                                         start_end . ranges)
+  "Set the priority of the specified songs. A higher priority means that it will be played first when \"random\" mode is enabled.
 
 A priority is an integer between 0 and 255. The default priority of new songs is 0."
+  (send-command
+    client
+    (string-join (cons "prio" (map (lambda (v)
+                                     (if (number? v)
+                                         (number->string v)
+                                       v)) (filter
+                                             (lambda (v)
+                                               (or (string? v) (number? v)))
+                                             (cons priority (cons
+                                                              start_end
+                                                              ranges))))) " ")
+    (lambda (resp)
+      resp)))
 
-            "prio")
 
-
-(mpd-define (mpdPlaylistCurrent::priority-id!            priority id)
-            "Same as prio, but address the songs with their id."
-
-            "prioid")
+(define*-public (mpdStatus::priority-id!                 client priority
+                                                         id . ids)
+  "Same as prio, but address the songs with their id."
+  (send-command
+    client
+    (string-join
+      (cons "prioid" (map (lambda (v)
+                            (if (number? v)
+                                (number->string v)
+                              v)) (filter
+                                    (lambda (v)
+                                      (or (string? v) (number? v)))
+                                    (cons priority (cons id ids)))))
+      " ")
+    (lambda (resp)
+      resp)))
 
 
 (mpd-define (mpdPlaylistCurrent::range-id!               id start_end)
