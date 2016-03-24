@@ -5,14 +5,35 @@
   :use-module (ice-9 regex)
   :use-module (ice-9 optargs))
 
+;;;   Helper Methods   ;;;
 (define (number?->string n)
-    (if (number? n) (number->string n) n))
+  (if (number? n) (number->string n) n))
 
 (define (filter/convert-strings/nums l)
   (map number?->string (filter (lambda (v)
 				 (or (string? v) (number? v))) l)))
 
+;;;   Handler Methods   ;;;
+(define mpdHandlers::general (lambda (resp)
+			       resp))
+
+(define (mpdHandlers::parse-files delimeter)
+  (lambda (resp)
+    (if (not (null? resp))
+	(reverse (fold
+		   (lambda (info_element knil)
+		     (if (eq? (car info_element) delimeter)
+			 (cons (list info_element) knil)
+		       (cons
+			 (append (car knil) (list info_element))
+			 (cdr knil))))
+		   (list (list (car resp)))
+		   (cdr resp)))
+      resp)))
+
 (define (create-cmd_string command rest . args)
+  (display (cons command (filter/convert-strings/nums (append args rest))))
+  (newline)
   (string-join
     (cons command (filter/convert-strings/nums (append args rest)))
     " "))
@@ -23,32 +44,24 @@
       ([_ (id arg ...) doc mpd_name]
        #'(define*-public (id client arg ...)
            doc
-           (let ([cmd_string (create-cmd_string
-                               (syntax->datum #'mpd_name)
-                               '()
-                               (list arg ...))])
+           (let ([cmd_string (create-cmd_string (syntax->datum
+						  #'mpd_name) '() arg ...)])
              (send-command client cmd_string))))
       ([_ (id arg ...) doc mpd_name #f handler]
        #'(define*-public (id client arg ...)
            doc
-           (let ([cmd_string (create-cmd_string
-                               (syntax->datum #'mpd_name)
-                               '()
-                               (list arg ...))])
+           (let ([cmd_string (create-cmd_string (syntax->datum
+						  #'mpd_name) '() arg ...)])
              (send-command client cmd_string handler))))
       ([_ (id arg ...) doc mpd_name #t creator]
        #'(define*-public (id client arg ...)
            doc
-           (let ([cmd_string (creator
-                               (syntax->datum #'mpd_name)
-                               (list arg ...))])
+           (let ([cmd_string (creator (syntax->datum #'mpd_name) arg ...)])
              (send-command client cmd_string))))
       ([_ (id arg ...) doc mpd_name creator handler]
        #'(define*-public (id client arg ...)
            doc
-           (let ([cmd_string (creator
-                               (syntax->datum #'mpd_name)
-                               (list arg ...))])
+           (let ([cmd_string (creator (syntax->datum #'mpd_name) arg ...)])
              (send-command client cmd_string handler)))))))
 
 
@@ -66,8 +79,7 @@
             
             "currentsong"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (define-public (mpdStatus::idle client . subsystems)
@@ -94,8 +106,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
   (send-command
     client
     (create-cmd_string "idle" subsystems)
-    (lambda (resp)
-      resp)))
+    mpdHandlers::general))
 
 
 (mpd-define (mpdStatus::status)
@@ -132,8 +143,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
 
             "status"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdStatus::stats)
@@ -149,8 +159,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
 
             "stats"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 
@@ -239,7 +248,9 @@ This command triggers the options idle event."
 (mpd-define (mpdPlaybackOption::replay-gain-status )
             "Prints replay gain options. Currently, only the variable replay_gain_mode is returned."
             
-            "replay_gain_status")
+            "replay_gain_status"
+	    #f
+	    mpdHandlers::general)
 
 
 ;; volume not included since it is depreciated
@@ -339,8 +350,7 @@ URI is always a single file or URL. For example:
 
             "addid"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdPlaylistCurrent::clear!                  )
@@ -353,11 +363,13 @@ URI is always a single file or URL. For example:
                                                            pos/start end)
             "delete [{POS} | {START:END}]
 
-Deletes a song from the playlist."
+Deletes a song from the playlist.
+
+Warning: a range seems to delete [START, END)."
 
             "delete"
 	    #t
-	    (lambda (command l)
+	    (lambda (command . l)
 	      (let* ([p/s (number?->string  (cadr l))]
 		     [  e (number?->string (caddr l))])
 		(string-join
@@ -378,21 +390,23 @@ Deletes the song SONGID from the playlist"
                                                               from/start end)
             "move [{FROM} | {START:END}] {TO}
 
-Moves the song at FROM or range of songs at START:END to TO in the playlist (ranges are supported since MPD 0.15)."
+Moves the song at FROM or range of songs at START:END to TO in the playlist (ranges are supported since MPD 0.15).
+
+Warning: a range seems to move [START, END)."
 
             "move"
 	    #t
-	    (lambda (command l)
+	    (lambda (command . l)
 	      (let* ([  t (number?->string    (car l))]
 		     [f/s (number?->string  (caddr l))]
 		     [  e (number?->string (cadddr l))])
 		(string-join
-		  (cons command (cons t (if f/s (if e
+		  (cons command (append (if f/s (if e
 						    (list (string-append
 							    f/s
 							    ":"
 							    e))
-						  (list f/s)) '())))
+						  (list f/s)) '()) (list t)))
 		  " "))))
 
 
@@ -419,8 +433,7 @@ Displays a list of songs in the playlist. SONGID is optional and specifies a sin
 
             "playlistid"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-info           #:optional
@@ -429,26 +442,19 @@ Displays a list of songs in the playlist. SONGID is optional and specifies a sin
 
 Displays a list of all songs in the playlist or, if the optional argument is given, displays information only for the song SONGPOS or the range of songs START:END (ranges are supported since MPD 0.15).
 
-This function returns a list of association lists, each a-list representing a single file."
+This function returns a list of association lists, each a-list representing a single file.
+
+Warning: a range seems to consist of [START, END)."
 
             "playlistinfo"
-	    (lambda (command l)
+	    (lambda (command . l)
  	      (let ([p/s (number?->string  (cadr l))]
 		    [  e (number?->string (caddr l))])
 		(string-join
 		  (cons command (if p/s (if e (list (string-append p/s ":" e))
 					  (list p/s)) '()))
 		  " ")))
-            (lambda (resp)
-              (reverse (fold
-                         (lambda (info_element knil)
-                           (if (eq? (car info_element) 'file)
-                               (cons (list info_element) knil)
-                             (cons
-                               (append (car knil) (list info_element))
-                               (cdr knil))))
-                         (list (list (car resp)))
-                         (cdr resp)))))
+            (mpdHandlers::parse-files 'file))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-search         tag needle)
@@ -456,10 +462,9 @@ This function returns a list of association lists, each a-list representing a si
 
 Searches case-insensitively for partial matches in the current playlist."
 
-            "playlistinfo"
+            "playlistsearch"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-changes        version)
@@ -471,8 +476,7 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
 
             "plchanges"
 	    #f
-            (lambda (resp)
-              resp))
+            (mpdHandlers::parse-files 'file))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-changes-pos-id version)
@@ -484,8 +488,7 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
 
             "plchangesposid"
 	    #f
-            (lambda (resp)
-              resp))
+            (mpdHandlers::parse-files 'cpos))
 
 
 ;; Unbearably ugly; refine the code, at some point
@@ -535,7 +538,7 @@ Specifies the portion of the song that shall be played (since MPD 0.19). START a
 
             "rangeid"
 	    #t
-	    (lambda (command l)
+	    (lambda (command . l)
  	      (let ([i (number?->string    (car l))]
 		    [s (number?->string   (cadr l))]
 		    [e (number?->string (cadddr l))])
@@ -552,7 +555,7 @@ Finds songs in the current playlist with strict matching.Shuffles the current pl
 
             "shuffle"
 	    #t
-	    (lambda (command l)
+	    (lambda (command . l)
  	      (let ([s (number?->string  (cadr l))]
 		    [e (number?->string (caddr l))])
 		(string-join
@@ -604,8 +607,7 @@ Lists the songs in the playlist. Playlist plugins are supported."
 
             "listplaylist"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdPlaylistsStored::list-playlist-info name)
@@ -615,8 +617,7 @@ Lists the songs with metadata in the playlist. Playlist plugins are supported."
 
             "listplaylistinfo"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdPlaylistsStored::list-playlists     )
@@ -626,8 +627,7 @@ After each playlist name the server sends its last modification time as attribut
 
             "listplaylists"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdPlaylistsStored::load!              name #:optional start end)
@@ -637,7 +637,7 @@ Loads the playlist into the current queue. Playlist plugins are supported. A ran
 
             "load"
 	    #t
-	    (lambda (command l)
+	    (lambda (command . l)
  	      (let ([n (number?->string    (car l))]
 		    [s (number?->string  (caddr l))]
 		    [e (number?->string (cadddr l))])
@@ -723,8 +723,7 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
   (send-command
     client
     (create-cmd_string "count" rest tag needle)
-    (lambda (resp)
-      resp)))
+    mpdHandlers::general))
 
 
 (define-public (mpdDatabase::find                 client type what . rest)
@@ -746,8 +745,7 @@ At the moment, – if you wish to specify a window range – you'll have to prov
   (send-command
     client
     (create-cmd_string "find" rest type what)
-    (lambda (resp)
-      resp)))
+    mpdHandlers::general))
 
 
 (define-public (mpdDatabase::find-add!            client type what . rest)
@@ -779,8 +777,7 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
   (send-command
     client
     (create-cmd_string "list" rest type filter_type filter_what)
-    (lambda (resp)
-      resp)))
+    mpdHandlers::general))
 
 
 (mpd-define (mpdDatabase::list-all                #:optional uri)
@@ -792,8 +789,7 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
 
             "listall"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdDatabase::list-all-info           #:optional uri)
@@ -805,8 +801,7 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
 
             "listallinfo"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdDatabase::list-files              #:optional uri)
@@ -818,8 +813,7 @@ For example, \"smb://SERVER\" returns a list of all shares on the given SMB/CIFS
 
             "listfiles"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdDatabase::ls-info                 #:optional uri)
@@ -835,8 +829,7 @@ Clients that are connected via UNIX domain socket may use this command to read t
 
             "lsinfo"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdDatabase::read-comments           #:optional uri)
@@ -852,8 +845,7 @@ The meaning of these depends on the codec, and not all decoder plugins support i
 
             "readcomments"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (define-public (mpdDatabase::search               client type what . rest)
@@ -866,8 +858,7 @@ At the moment, – if you wish to specify a window range – you'll have to prov
   (send-command
     client
     (create-cmd_string "search" rest type what)
-    (lambda (resp)
-      resp)))
+    mpdHandlers::general))
 
 
 (mpd-define (mpdDatabase::search-add!             type what)
@@ -916,8 +907,7 @@ Prints \"updating_db: JOBID\" where JOBID is a positive number identifying the u
 
             "update"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdDatabase::rescan!                 uri)
@@ -927,8 +917,7 @@ Same as update, but also rescans unmodified files."
 
             "rescan"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 
@@ -966,8 +955,7 @@ Unmounts the specified path. Example:
 
             "listmounts"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdMounts::list-neighbors)
@@ -978,10 +966,9 @@ Unmounts the specified path. Example:
 |   name: FOO (Samba 4.1.11-Debian)
 |   OK"
 
-            "unmount"
+            "listneighbors"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 
@@ -994,8 +981,7 @@ Reads a sticker value for the specified object."
 
             "sticker get"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdStickers::set!    type uri name value)
@@ -1021,8 +1007,7 @@ Lists the stickers for the specified object."
 
             "sticker list"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdStickers::find    type uri name)
@@ -1032,8 +1017,7 @@ Searches the sticker database for stickers with the specified name, below the sp
 
             "sticker find"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdStickers::find>=< type uri name op value)
@@ -1045,8 +1029,7 @@ Other supported operators are: \"<\", \">\""
 
             "sticker find"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 
@@ -1077,8 +1060,7 @@ This is used for authentication with the server. PASSWORD is simply the plaintex
 
             "ping"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 
@@ -1124,8 +1106,7 @@ Return information:
 
             "outputs"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 
@@ -1140,8 +1121,7 @@ The following response attributes are available:
 
             "config"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdAudioOutput::commands    )
@@ -1149,8 +1129,7 @@ The following response attributes are available:
 
             "commands"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdAudioOutput::not-commands)
@@ -1158,8 +1137,7 @@ The following response attributes are available:
 
             "notcommands"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdAudioOutput::tag-types   )
@@ -1167,8 +1145,7 @@ The following response attributes are available:
 
             "tagtypes"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdAudioOutput::url-handlers)
@@ -1176,8 +1153,7 @@ The following response attributes are available:
 
             "urlhandlers"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdAudioOutput::decoders    )
@@ -1192,8 +1168,7 @@ The following response attributes are available:
 
             "decoders"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 
@@ -1220,8 +1195,7 @@ Unsubscribe from a channel."
 
             "channels"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdAudioOutput::read-messages)
@@ -1229,8 +1203,7 @@ Unsubscribe from a channel."
 
             "readmessages"
 	    #f
-            (lambda (resp)
-              resp))
+            mpdHandlers::general)
 
 
 (mpd-define (mpdAudioOutput::send-message channel text)
