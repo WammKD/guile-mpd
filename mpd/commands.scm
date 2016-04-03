@@ -6,6 +6,7 @@
   :use-module (ice-9 optargs))
 
 ;;;   Helper Methods   ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define (number?->string n)
   (if (number? n) (number->string n) n))
 
@@ -13,10 +14,27 @@
   (map number?->string (filter (lambda (v)
 				 (or (string? v) (number? v))) l)))
 
+(define (create-ranges-from-list init final)
+  (cond
+   [(null? init)
+         final]
+   [(and (string? (car init)) (string-index (car init) #\:))
+         (create-ranges-from-list (cdr init) (cons (car init) final))]
+   [else (create-ranges-from-list
+           (cddr init)
+           (cons (string-append
+                   (number?->string (car init))
+                   ":"
+                   (number?->string (cadr init))) final))]))
+
 ;;;   Handler Methods   ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define mpdHandlers::general (lambda (resp)
 			       resp))
 
+; Converting '((file . "f") (artist . "a") … (file . "f2") (artist . "a2") …)
+; to '(((file . "f") (artist . "a") …) ((file . "f2") (artist . "a2") …) …),
+; for example
 (define (mpdHandlers::parse-files delimeter)
   (lambda (resp)
     (if (not (null? resp))
@@ -32,8 +50,6 @@
       resp)))
 
 (define (create-cmd_string command rest . args)
-  (display (cons command (filter/convert-strings/nums (append args rest))))
-  (newline)
   (string-join
     (cons command (filter/convert-strings/nums (append args rest)))
     " "))
@@ -423,22 +439,24 @@ Moves the song with FROM (songid) to TO (playlist index) in the playlist. If TO 
 
 Finds songs in the current playlist with strict matching."
 
-            "playlistfind")
+            "playlistfind"
+	    #f
+	    (mpdHandlers::parse-files 'file))
 
 
-(mpd-define (mpdPlaylistCurrent::playlist-id             song_id)
-            "playlistid {SONGID}
+(mpd-define (mpdPlaylistCurrent::playlist-id             #:optional song_id)
+            "playlistid [SONGID]
 
 Displays a list of songs in the playlist. SONGID is optional and specifies a single song to display info for."
 
             "playlistid"
 	    #f
-            mpdHandlers::general)
+            (mpdHandlers::parse-files 'file))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-info           #:optional
                                                            song_pos/start end)
-            "playlistinfo [[SONGPOS] | [START:END]]
+            "playlistinfo [{SONGPOS} | {START:END}]
 
 Displays a list of all songs in the playlist or, if the optional argument is given, displays information only for the song SONGPOS or the range of songs START:END (ranges are supported since MPD 0.15).
 
@@ -464,7 +482,7 @@ Searches case-insensitively for partial matches in the current playlist."
 
             "playlistsearch"
 	    #f
-            mpdHandlers::general)
+            (mpdHandlers::parse-files 'file))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-changes        version)
@@ -491,35 +509,25 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
             (mpdHandlers::parse-files 'cpos))
 
 
-;; Unbearably ugly; refine the code, at some point
-(define*-public (mpdStatus::priority!                    client priority
-                                                         start end . ranges)
+(define*-public (mpdPlaylistCurrent::priority!           client priority
+                                                         start . ranges)
   "prio {PRIORITY} {START:END...}
 
 Set the priority of the specified songs. A higher priority means that it will be played first when \"random\" mode is enabled.
 
-A priority is an integer between 0 and 255. The default priority of new songs is 0."
-  
+A priority is an integer between 0 and 255. The default priority of new songs is 0.
+
+Ranges can be passed as strings (e.g. \"1:4\") or single integers as string or numbers (e.g. 1 or \"1\") so long as two values are passed to make a range of, for the latter (e.g. (mpdStatus::priority! client 0 1 2 \"4:7\" 8 \"10\"))."
+
   (send-command
     client
     (create-cmd_string
       "prio"
-      (fold
-        (lambda (kons knil)
-	  (if (or (null? knil) (not (=
-				      (string-rindex (car knil) #\:)
-				      (1- (string-length (car knil))))))
-	      (cons (string-append (number?->string kons) ":") knil)
-	    (cons (string-append
-		    (car knil)
-		    (number?->string kons)) (cdr knil))))
-	'()
-	ranges)
-      priority
-      (string-append (number?->string start) ":" (number?->string end)))))
+      (create-ranges-from-list (cons start ranges) '())
+      priority)))
 
 
-(define-public (mpdStatus::priority-id!                  client priority
+(define-public (mpdPlaylistCurrent::priority-id!         client priority
                                                          id . ids)
   "prioid {PRIORITY} {ID...}
 
@@ -551,7 +559,7 @@ Specifies the portion of the song that shall be played (since MPD 0.19). START a
 (mpd-define (mpdPlaylistCurrent::shuffle!                #:optional start end)
             "shuffle [START:END]
 
-Finds songs in the current playlist with strict matching.Shuffles the current playlist. START:END is optional and specifies a range of songs."
+Finds songs in the current playlist with strict matching. Shuffles the current playlist. START:END is optional and specifies a range of songs."
 
             "shuffle"
 	    #t
@@ -617,7 +625,7 @@ Lists the songs with metadata in the playlist. Playlist plugins are supported."
 
             "listplaylistinfo"
 	    #f
-            mpdHandlers::general)
+            (mpdHandlers::parse-files 'file))
 
 
 (mpd-define (mpdPlaylistsStored::list-playlists     )
@@ -627,7 +635,7 @@ After each playlist name the server sends its last modification time as attribut
 
             "listplaylists"
 	    #f
-            mpdHandlers::general)
+            (mpdHandlers::parse-files 'playlist))
 
 
 (mpd-define (mpdPlaylistsStored::load!              name #:optional start end)
@@ -677,7 +685,9 @@ Deletes SONGPOS from the playlist NAME.m3u."
 (mpd-define (mpdPlaylistsStored::playlist-move!     name song_id song_pos)
             "playlistmove {NAME} {SONGID} {SONGPOS}
 
-Moves SONGID in the playlist NAME.m3u to the position SONGPOS."
+Moves SONGID in the playlist NAME.m3u to the position SONGPOS.
+
+Warning: MPD API says SONGID but I think they mean the original song position followed by the new song position."
 
             "playlistmove")
 
@@ -740,12 +750,23 @@ WHAT is what to find.
 
 window can be used to query only a portion of the real response. The parameter is two zero-based record numbers; a start number and an end number.
 
-At the moment, – if you wish to specify a window range – you'll have to provide the \"window\" word yourself as the second-to-last argument to count."
+At the moment, – if you wish to specify a window range – you'll have to provide the \"window\" word yourself as the second-to-last argument to count.
+
+At the moment, ranges must be submitted as strings (e.g. \"1:3\") instead of as separate numbers."
 
   (send-command
     client
-    (create-cmd_string "find" rest type what)
-    mpdHandlers::general))
+    (create-cmd_string
+      "find"
+      (let ([end (member "window" rest)])  ; Finds if "window" was given in
+        (if end  ; rest and then feed everything after "window" (which should
+            (append  ; be ranges) to create-ranges-from-list and then reappends
+              (list-head rest (- (length rest) (length (cdr end))))
+              (create-ranges-from-list (cdr end) '()))
+          rest))
+      type
+      what)
+    (mpdHandlers::parse-files 'file)))
 
 
 (define-public (mpdDatabase::find-add!            client type what . rest)
@@ -853,12 +874,14 @@ The meaning of these depends on the codec, and not all decoder plugins support i
 
 Searches for any song that contains WHAT. Parameters have the same meaning as for find, except that search is not case sensitive.
 
-At the moment, – if you wish to specify a window range – you'll have to provide the \"window\" word yourself as the second-to-last argument to count."
+At the moment, – if you wish to specify a window range – you'll have to provide the \"window\" word yourself as the second-to-last argument to count.
+
+At the moment, ranges must be submitted as strings (e.g. \"1:3\") instead of as separate numbers."
 
   (send-command
     client
     (create-cmd_string "search" rest type what)
-    mpdHandlers::general))
+    (mpdHandlers::parse-files 'file)))
 
 
 (mpd-define (mpdDatabase::search-add!             type what)
