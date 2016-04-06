@@ -29,8 +29,8 @@
 
 ;;;   Handler Methods   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define (mpdHandlers::general resp)
-  resp)
+(define mpdHandlers::general (lambda (resp)
+                               resp))
 
 ; Converting '((file . "f") (artist . "a") … (file . "f2") (artist . "a2") …)
 ; to '(((file . "f") (artist . "a") …) ((file . "f2") (artist . "a2") …) …),
@@ -49,20 +49,22 @@
 		   (cdr resp)))
       resp)))
 
-(define (mpdHandlers::parse-dirs resp)
-  (cdr (let loop ([orig resp] [final '()] [dir ""])
-         (cond
-          [(null? orig)
-                (cons orig (reverse final))]
-          [(eq? (caar orig) 'directory)
-                (if (string-contains (cdar orig) dir)
-                    (let ([answer (loop
-                                    (cdr orig)
-                                    (list (car orig))
-                                    (cdar orig))])
-                      (loop (car answer) (cons (cdr answer) final) dir))
-                  (cons orig (reverse final)))]
-          [else (loop (cdr orig) (cons (car orig) final) dir)]))))
+(define (mpdHandlers::parse-dirs d)
+  (lambda (resp)
+    (cdr (let loop ([orig resp] [final '()] [dir d])
+           (cond
+            [(null? orig)
+                  (cons orig (reverse final))]
+            [(and (eq? (caar orig) 'directory) (not
+                                                 (string=? (cdar orig) dir)))
+                  (if (string-contains (cdar orig) dir)
+                      (let ([answer (loop
+                                      (cdr orig)
+                                      (list (car orig))
+                                      (cdar orig))])
+                        (loop (car answer) (cons (cdr answer) final) dir))
+                    (cons orig (reverse final)))]
+            [else (loop (cdr orig) (cons (car orig) final) dir)])))))
 
 (define (create-cmd_string command rest . args)
   (string-join
@@ -825,7 +827,7 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
 
             "listall"
 	    #f
-            mpdHandlers::general)
+            (mpdHandlers::parse-dirs (if uri uri "")))
 
 
 (mpd-define (mpdDatabase::list-all-info           #:optional uri)
