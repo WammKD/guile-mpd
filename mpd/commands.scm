@@ -29,8 +29,8 @@
 
 ;;;   Handler Methods   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define mpdHandlers::general (lambda (resp)
-			       resp))
+(define (mpdHandlers::general resp)
+  resp)
 
 ; Converting '((file . "f") (artist . "a") … (file . "f2") (artist . "a2") …)
 ; to '(((file . "f") (artist . "a") …) ((file . "f2") (artist . "a2") …) …),
