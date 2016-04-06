@@ -38,15 +38,23 @@
 (define (mpdHandlers::parse-files delimeter)
   (lambda (resp)
     (if (not (null? resp))
-	(reverse (fold
-		   (lambda (info_element knil)
-		     (if (eq? (car info_element) delimeter)
-			 (cons (list info_element) knil)
-		       (cons
-			 (append (car knil) (list info_element))
-			 (cdr knil))))
-		   (list (list (car resp)))
-		   (cdr resp)))
+	(reverse
+          (fold
+            (lambda (info_element knil)
+              (cond
+               [(list? info_element)
+                     (cons
+                       ((mpdHandlers::parse-files delimeter) info_element)
+                       knil)]
+               [(eq? (car info_element) delimeter)
+                     (cons (list info_element) knil)]
+               [(or (null? knil) (not (list? (car knil))))
+                     (cons info_element knil)]
+               [else (cons
+                       (append (car knil) (list info_element))
+                       (cdr knil))]))
+            '()
+            resp))
       resp)))
 
 (define (mpdHandlers::parse-dirs d)
@@ -823,7 +831,9 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
 
 Lists all songs and directories in URI.
 
-Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something."
+Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something.
+
+The data returned is returned as a tree (comprised of lists), starting from the base directory (or specified directory). Each directory is its own list with the name of the directory as the first item (except for the base directory) and every song or other directory in said directory following as succeeding elements of the list."
 
             "listall"
 	    #f
@@ -839,7 +849,9 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
 
             "listallinfo"
 	    #f
-            mpdHandlers::general)
+            (lambda (resp)
+              ((mpdHandlers::parse-files 'file)
+                ((mpdHandlers::parse-dirs (if uri uri "")) resp))))
 
 
 (mpd-define (mpdDatabase::list-files              #:optional uri)
