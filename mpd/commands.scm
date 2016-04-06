@@ -49,6 +49,21 @@
 		   (cdr resp)))
       resp)))
 
+(define (mpdHandlers::parse-dirs resp)
+  (cdr (let loop ([orig resp] [final '()] [dir ""])
+         (cond
+          [(null? orig)
+                (cons orig (reverse final))]
+          [(eq? (caar orig) 'directory)
+                (if (string-contains (cdar orig) dir)
+                    (let ([answer (loop
+                                    (cdr orig)
+                                    (list (car orig))
+                                    (cdar orig))])
+                      (loop (car answer) (cons (cdr answer) final) dir))
+                  (cons orig (reverse final)))]
+          [else (loop (cdr orig) (cons (car orig) final) dir)]))))
+
 (define (create-cmd_string command rest . args)
   (string-join
     (cons command (filter/convert-strings/nums (append args rest)))
@@ -57,19 +72,19 @@
 (define-syntax mpd-define
   (lambda (stx)
     (syntax-case stx ()
-      ([_ (id arg ...) doc mpd_name]
+      ([_ (id arg ...) doc mpd_name                ]
        #'(define*-public (id client arg ...)
            doc
            (let ([cmd_string (create-cmd_string (syntax->datum
 						  #'mpd_name) '() arg ...)])
              (send-command client cmd_string))))
-      ([_ (id arg ...) doc mpd_name #f handler]
+      ([_ (id arg ...) doc mpd_name #f      handler]
        #'(define*-public (id client arg ...)
            doc
            (let ([cmd_string (create-cmd_string (syntax->datum
 						  #'mpd_name) '() arg ...)])
              (send-command client cmd_string handler))))
-      ([_ (id arg ...) doc mpd_name #t creator]
+      ([_ (id arg ...) doc mpd_name #t      creator]
        #'(define*-public (id client arg ...)
            doc
            (let ([cmd_string (creator (syntax->datum #'mpd_name) arg ...)])
