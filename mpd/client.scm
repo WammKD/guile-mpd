@@ -97,7 +97,7 @@
       (handler response))))
 
 (define (connected? client)
-  (mpd-socket client))
+  (and (mpd-socket client) #t))
 
 (define (disconnect client)
   (write-line "close" (mpd-socket client))
