@@ -16,11 +16,11 @@
 (define-record-type <mpd-client>
   (make-mpd-client host port)
   mpd-client?
-  (host mpd-host set-mpd-host!)
-  (port mpd-port set-mpd-port!)
-  (socket mpd-socket set-mpd-sock!)
+  (host    mpd-host    set-mpd-host!)
+  (port    mpd-port    set-mpd-port!)
+  (socket  mpd-socket  set-mpd-sock!)
   (version mpd-version set-mpd-version!)
-  (tags mpd-tags set-mpd-tags!))
+  (tags    mpd-tags    set-mpd-tags!))
 
 
 (set-record-type-printer!
