@@ -70,22 +70,23 @@
 
 (define (mpd-receive sock)
   (call/cc
-   (lambda (return)
-     (while #t
-       (when (char-ready? sock)
-         (let loop ([line  (read-line sock)]
-                    [lines              '()])
-           (if (string=? "OK" line)
-               (return (reverse lines))
-             (loop (read-line sock) (cons (let* ([i   (string-index line #\:)]
-                                                 [s2 (substring line (+ i 2))]
-                                                 [n?      (string->number s2)])
-                                            (if i
-                                                (cons
-                                                  (string->symbol
-                                                    (substring line 0 i))
-                                                  (if n? n? s2))
-                                              line)) lines)))))))))
+    (lambda (return)
+      (while #t
+	(when (char-ready? sock)
+	  (let loop ([line   (read-line sock)]
+		     [result              '()])
+	    (if (string=? "OK" line)
+		(return result)
+	      (loop
+	        (read-line sock)
+		(append result (list (let ([lst-pair (string-split line #\:)])
+				       (if (= (length lst-pair) 2)
+					   (cons
+					     (string->symbol (car lst-pair))
+					     (let* ([scnd       (cadr lst-pair)]
+						    [num? (string->number scnd)])
+					       (if num? num? scnd)))
+					 lst-pair))))))))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
   (write-line str (mpd-socket client))
