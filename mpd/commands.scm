@@ -15,17 +15,17 @@
 				 (or (string? v) (number? v))) l)))
 
 (define (create-ranges-from-list init final)
+  (define (make-range e1 e2)
+    (string-append (number?->string e1) ":" (number?->string e2)))
+
   (cond
    [(null? init)
          final]
    [(and (string? (car init)) (string-index (car init) #\:))
-         (create-ranges-from-list (cdr init) (cons (car init) final))]
-   [else (create-ranges-from-list
-           (cddr init)
-           (cons (string-append
-                   (number?->string (car init))
-                   ":"
-                   (number?->string (cadr init))) final))]))
+         (create-ranges-from-list (cdr init)  (cons (car init) final))]
+   [else (create-ranges-from-list (cddr init) (cons
+					        (make-range (car init) (cadr init))
+						final))]))
 
 ;;;   Handler Methods   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
