@@ -83,27 +83,27 @@
   (lambda (stx)
     (syntax-case stx ()
       ([_ (id arg ...) doc mpd_name                ]
-       #'(define*-public (id client arg ...)
-           doc
-           (let ([cmd_string (create-cmd_string (syntax->datum
-						  #'mpd_name) '() arg ...)])
+           #'(define*-public (id client arg ...)
+	       doc
+	       (let ([cmd_string (create-cmd_string (syntax->datum
+						      #'mpd_name) '() arg ...)])
              (send-command client cmd_string))))
       ([_ (id arg ...) doc mpd_name #f      handler]
-       #'(define*-public (id client arg ...)
-           doc
-           (let ([cmd_string (create-cmd_string (syntax->datum
-						  #'mpd_name) '() arg ...)])
-             (send-command client cmd_string handler))))
+           #'(define*-public (id client arg ...)
+	       doc
+	       (let ([cmd_string (create-cmd_string (syntax->datum
+						      #'mpd_name) '() arg ...)])
+		 (send-command client cmd_string handler))))
       ([_ (id arg ...) doc mpd_name #t      creator]
-       #'(define*-public (id client arg ...)
-           doc
-           (let ([cmd_string (creator (syntax->datum #'mpd_name) arg ...)])
-             (send-command client cmd_string))))
+           #'(define*-public (id client arg ...)
+	       doc
+	       (let ([cmd_string (creator (syntax->datum #'mpd_name) arg ...)])
+		 (send-command client cmd_string))))
       ([_ (id arg ...) doc mpd_name creator handler]
-       #'(define*-public (id client arg ...)
-           doc
-           (let ([cmd_string (creator (syntax->datum #'mpd_name) arg ...)])
-             (send-command client cmd_string handler)))))))
+           #'(define*-public (id client arg ...)
+	       doc
+	       (let ([cmd_string (creator (syntax->datum #'mpd_name) arg ...)])
+		 (send-command client cmd_string handler)))))))
 
 
 

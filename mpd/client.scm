@@ -75,26 +75,33 @@
 	(when (char-ready? sock)
 	  (let loop ([line   (read-line sock)]
 		     [result              '()])
-	    (if (string=? "OK" line)
-		(return result)
-	      (loop
-	        (read-line sock)
-		(append result (list (let ([lst-pair (string-split line #\:)])
-				       (if (= (length lst-pair) 2)
-					   (cons
-					     (string->symbol (car lst-pair))
-					     (let* ([scnd       (cadr lst-pair)]
-						    [num? (string->number scnd)])
-					       (if num? num? scnd)))
-					 lst-pair))))))))))))
+	    (cond
+	     [(string=? "OK" line)
+	           (return result)]
+	     [(= 0 (string-contains line "ACK [2@0]"))
+	           (return (cons #f (substring line 10)))]
+	     [else (loop
+		     (read-line sock)
+		     (append result (list
+				      (let ([lst-pair (string-split line #\:)])
+					(if (= (length lst-pair) 2)
+					    (cons
+					      (string->symbol (car lst-pair))
+					      (let* ([scnd       (cadr lst-pair)]
+						     [num? (string->number scnd)])
+						(if num? num? scnd)))
+					  lst-pair)))))])))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
   (write-line str (mpd-socket client))
 
   (let ([response (mpd-receive (mpd-socket client))])
-    (if (or (equal? handler #t) (equal? handler *unspecified*))
-        handler
-      (handler response))))
+    (cond
+     [(and (pair? response) (not (car response)))           response]
+     [(or
+        (equal? handler #t)
+	(equal? handler *unspecified*))                      handler]
+     [else                                        (handler response)])))
 
 (define (connected? client)
   (and (mpd-socket client) #t))
