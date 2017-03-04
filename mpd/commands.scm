@@ -14,18 +14,17 @@
   (map number?->string (filter (lambda (v)
 				 (or (string? v) (number? v))) l)))
 
-(define (create-ranges-from-list init final)
+(define (create-ranges-from-list values)
   (define (make-range e1 e2)
     (string-append (number?->string e1) ":" (number?->string e2)))
 
-  (cond
-   [(null? init)
-         final]
-   [(and (string? (car init)) (string-index (car init) #\:))
-         (create-ranges-from-list (cdr init)  (cons (car init) final))]
-   [else (create-ranges-from-list (cddr init) (cons
-					        (make-range (car init) (cadr init))
-						final))]))
+  (let loop ([init values] [final '()])
+    (cond
+     [(null? init)
+           final]
+     [(and (string? (car init)) (string-index (car init) #\:))
+           (loop (cdr init)  (cons (car init) final))]
+     [else (loop (cddr init) (cons (make-range (car init) (cadr init)) final))])))
 
 ;;;   Handler Methods   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -548,7 +547,7 @@ Ranges can be passed as strings (e.g. \"1:4\") or single integers as string or n
     client
     (create-cmd_string
       "prio"
-      (create-ranges-from-list (cons start ranges) '())
+      (create-ranges-from-list (cons start ranges))
       priority)))
 
 
@@ -787,7 +786,7 @@ At the moment, ranges must be submitted as strings (e.g. \"1:3\") instead of as 
         (if end  ; rest and then feed everything after "window" (which should
             (append  ; be ranges) to create-ranges-from-list and then reappends
               (list-head rest (- (length rest) (length (cdr end))))
-              (create-ranges-from-list (cdr end) '()))
+              (create-ranges-from-list (cdr end)))
           rest))
       type
       what)
