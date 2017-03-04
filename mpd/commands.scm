@@ -11,8 +11,12 @@
   (if (number? n) (number->string n) n))
 
 (define (filter/convert-strings/nums l)
-  (map number?->string (filter (lambda (v)
-				 (or (string? v) (number? v))) l)))
+  (map (lambda (ns)
+	 (if (not (or (string? ns) (number? ns)))
+	     (error
+	       "In procedure filter/convert-strings/nums: Wrong type argument:"
+	       ns)
+	   (string-append "\"" (number?->string ns) "\""))) l))
 
 (define (create-ranges-from-list values)
   (define (make-range e1 e2)
@@ -387,7 +391,7 @@ URI is always a single file or URL. For example:
 
 
 (mpd-define (mpdPlaylistCurrent::clear!                  )
-            "Clears the current playlist."
+            "Clears the current playlis.t"
 
             "clear")
 
