@@ -78,9 +78,9 @@
 	    (cond
 	     [(string=? "OK" line)
 	           (return result)]
-	     [(let ([response (string-contains line "ACK [2@0]")])
+	     [(let ([response (string-contains line "ACK [")])
 		(and (number? response) (= 0 response)))
-	           (return (cons #f (substring line 10)))]
+	           (return (cons #f line))]
 	     [else (loop
 		     (read-line sock)
 		     (append result (list
