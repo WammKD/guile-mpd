@@ -39,24 +39,14 @@
 ; for example
 (define (mpdHandlers::parse-files delimeter)
   (lambda (resp)
-    (if (not (null? resp))
-	(reverse
-          (fold
-            (lambda (info_element knil)
-              (cond
-               [(list? info_element)
-                     (cons
-                       ((mpdHandlers::parse-files delimeter) info_element)
-                       knil)]
-               [(eq? (car info_element) delimeter)
-                     (cons (list info_element) knil)]
-               [(or (null? knil) (not (list? (car knil))))
-                     (cons info_element knil)]
-               [else (cons
-                       (append (car knil) (list info_element))
-                       (cdr knil))]))
-            '()
-            resp))
+    (reduce-right
+      (lambda (elem lst)
+	(if (list? lst)
+	    (if (eq? (caaar lst) delimeter)
+		(cons (list (list elem)) lst)
+	      (cons (cons elem (car lst)) (cdr lst)))
+	  (list (list elem lst))))
+      '()
       resp)))
 
 (define (mpdHandlers::parse-dirs d)
