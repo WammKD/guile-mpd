@@ -21,10 +21,13 @@
   (let loop ([init values] [final '()])
     (cond
      [(null? init)
-           final]
+               final]
      [(and (string? (car init)) (string-index (car init) #\:))
-           (loop (cdr init)  (cons (car init) final))]
-     [else (loop (cddr init) (cons (make-range (car init) (cadr init)) final))])))
+               (loop (cdr init)  (cons (car init)                 final))]
+     [else (let ([v2 (cadr init)])
+	     (if (and (string? v2) (string-index v2 #\:))
+		 (error "wrong format of paired values")
+	       (loop (cddr init) (cons (make-range (car init) v2) final))))])))
 
 ;;;   Handler Methods   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
