@@ -11,12 +11,15 @@
   (if (number? n) (number->string n) n))
 
 (define (filter/convert-strings/nums l)
-  (map (lambda (ns)
-	 (if (not (or (string? ns) (number? ns)))
-	     (error
-	       "In procedure filter/convert-strings/nums: Wrong type argument:"
-	       ns)
-	   (string-append "\"" (number?->string ns) "\""))) l))
+  (map
+    (lambda (ns)
+      (if (not (or (string? ns) (number? ns)))
+	  (error
+	    "In procedure filter/convert-strings/nums: Wrong type argument:"
+	    ns)
+	(string-append "\"" (number?->string ns) "\"")))
+    (filter (lambda(elem)
+	      (not (eq? elem #:optional))) l)))
 
 (define (create-ranges-from-list values)
   (define (make-range e1 e2)
