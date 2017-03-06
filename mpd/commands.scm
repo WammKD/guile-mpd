@@ -10,16 +10,15 @@
 (define (number?->string n)
   (if (number? n) (number->string n) n))
 
+; Due to, it seems, that #:optional and a #f, if nothing is given for the
+; optional argument, are sent through, there's no easy way to pick apart which
+; values are from those calling the function so we discard all non-number/strings
 (define (filter/convert-strings/nums l)
   (map
     (lambda (ns)
-      (if (not (or (string? ns) (number? ns)))
-	  (error
-	    "In procedure filter/convert-strings/nums: Wrong type argument:"
-	    ns)
-	(string-append "\"" (number?->string ns) "\"")))
-    (filter (lambda(elem)
-	      (not (eq? elem #:optional))) l)))
+      (string-append "\"" (number?->string ns) "\""))
+    (filter (lambda (ns)
+	      (or (string? ns) (number? ns))) l)))
 
 (define (create-ranges-from-list values)
   (define (make-range e1 e2)
