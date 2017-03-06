@@ -28,7 +28,7 @@
     (cond
      [(null? init)
                final]
-     [(and (string? (car init)) (string-index (car init) #\:))
+     [(let ([car-init (car init)]) (and (string? (ci)) (string-index (ci) #\:)))
                (loop (cdr init)  (cons (car init)                 final))]
      [else (let ([v2 (cadr init)])
 	     (if (and (string? v2) (string-index v2 #\:))
@@ -72,6 +72,8 @@
                     (cons orig (reverse final)))]
             [else (loop (cdr orig) (cons (car orig) final) dir)])))))
 
+;;;   Creation Methods   ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define (bind-all-arguments-to-one-string command . args)
   (string-join
     (cons command (filter/convert-strings/nums args))
