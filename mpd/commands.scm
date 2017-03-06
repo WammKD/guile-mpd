@@ -10,9 +10,9 @@
 (define (number?->string n)
   (if (number? n) (number->string n) n))
 
-; Due to, it seems, that #:optional and a #f, if nothing is given for the
-; optional argument, are sent through, there's no easy way to pick apart which
-; values are from those calling the function so we discard all non-number/strings
+; Due to – it seems – that #:optional and a #f – if nothing is given for the
+; optional argument – are sent through, there's no easy way to pick apart which
+; values are from people calling the function so we discard all non-number/strings
 (define (filter/convert-strings/nums l)
   (map
     (lambda (ns)
@@ -72,27 +72,15 @@
                     (cons orig (reverse final)))]
             [else (loop (cdr orig) (cons (car orig) final) dir)])))))
 
-(define (create-cmd_string command rest . args)
+(define (bind-all-arguments-to-one-string command . args)
   (string-join
-    (cons command (filter/convert-strings/nums (append args rest)))
+    (cons command (filter/convert-strings/nums args))
     " "))
 
 (define-syntax mpd-define
   (lambda (stx)
     (syntax-case stx ()
-      ([_ (id arg ...) doc mpd_name                ]
-           #'(define*-public (id client arg ...)
-	       doc
-	       (let ([cmd_string (create-cmd_string (syntax->datum
-						      #'mpd_name) '() arg ...)])
-             (send-command client cmd_string))))
-      ([_ (id arg ...) doc mpd_name #f      handler]
-           #'(define*-public (id client arg ...)
-	       doc
-	       (let ([cmd_string (create-cmd_string (syntax->datum
-						      #'mpd_name) '() arg ...)])
-		 (send-command client cmd_string handler))))
-      ([_ (id arg ...) doc mpd_name #t      creator]
+      ([_ (id arg ...) doc mpd_name creator        ]
            #'(define*-public (id client arg ...)
 	       doc
 	       (let ([cmd_string (creator (syntax->datum #'mpd_name) arg ...)])
@@ -110,14 +98,15 @@
 (mpd-define (mpdStatus::clear-error!)
             "Clears the current error message in status (this is also accomplished by any command that starts playback)."
 
-            "clearerror")
+            "clearerror"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdStatus::current-song)
             "Displays the song info of the current song (same song that is identified in status)."
             
             "currentsong"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -144,7 +133,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
 
   (send-command
     client
-    (create-cmd_string "idle" subsystems)
+    (bind-all-arguments-to-one-string "idle" subsystems)
     mpdHandlers::general))
 
 
@@ -181,7 +170,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
  * error         : if there is an error, returns message here"
 
             "status"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -197,7 +186,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
  * playtime   : time length of music played"
 
             "stats"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -209,7 +198,8 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
 
 Sets consume state to STATE (ntroduced with MPD 0.15); STATE should be 0 or 1. When consume is activated, each song played is removed from playlist."
 
-            "consume")
+            "consume"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::crossfade!         seconds)
@@ -217,7 +207,8 @@ Sets consume state to STATE (ntroduced with MPD 0.15); STATE should be 0 or 1. W
 
 Sets crossfading between songs"
 
-            "crossfade")
+            "crossfade"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::mix-ramp-db!       decibels)
@@ -225,7 +216,8 @@ Sets crossfading between songs"
 
 Sets the threshold at which songs will be overlapped. Like crossfading but doesn't fade the track volume, just overlaps. The songs need to have MixRamp tags added by an external tool. 0dB is the normalized maximum volume so use negative values; I prefer -17dB. In the absence of mixramp tags crossfading will be used. See http://sourceforge.net/projects/mixramp"
 
-            "mixrampdb")
+            "mixrampdb"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::mix-ramp-delay!    seconds)
@@ -233,7 +225,8 @@ Sets the threshold at which songs will be overlapped. Like crossfading but doesn
 
 Additional time subtracted from the overlap calculated by mixrampdb. A value of \"nan\" disables MixRamp overlapping and falls back to crossfading."
 
-            "mixrampdelay")
+            "mixrampdelay"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::random!            state)
@@ -241,7 +234,8 @@ Additional time subtracted from the overlap calculated by mixrampdb. A value of 
 
 Sets random state to STATE; STATE should be 0 or 1."
 
-            "random")
+            "random"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::repeat!            state)
@@ -249,7 +243,8 @@ Sets random state to STATE; STATE should be 0 or 1."
 
 Sets repeat state to STATE; STATE should be 0 or 1."
 
-            "repeat")
+            "repeat"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::set-vol!           vol)
@@ -257,7 +252,8 @@ Sets repeat state to STATE; STATE should be 0 or 1."
 
 Sets volume to VOL; the range of volume is 0-100."
 
-            "setvol")
+            "setvol"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::single!            state)
@@ -265,7 +261,8 @@ Sets volume to VOL; the range of volume is 0-100."
 
 Sets single state to STATE (introduced with MPD 0.15); STATE should be 0 or 1. When single is activated, playback is stopped after current song or song is repeated, if the 'repeat' mode is enabled."
 
-            "single")
+            "single"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::replay-gain-mode!  mode)
@@ -281,14 +278,15 @@ Changing the mode during playback may take several seconds, because the new sett
 
 This command triggers the options idle event."
             
-            "replay_gain_mode")
+            "replay_gain_mode"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackOption::replay-gain-status )
             "Prints replay gain options. Currently, only the variable replay_gain_mode is returned."
             
             "replay_gain_status"
-	    #f
+	    bind-all-arguments-to-one-string
 	    mpdHandlers::general)
 
 
@@ -303,7 +301,8 @@ This command triggers the options idle event."
 
 Begins playing the playlist at song number SONG-POS"
 
-            "play")
+            "play"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackControl::play-id      song_id)
@@ -311,13 +310,15 @@ Begins playing the playlist at song number SONG-POS"
 
 Beings playing the playlist at song SONG-ID"
 
-            "playid")
+            "playid"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackControl::stop         )
             "Stops playing"
 
-            "stop")
+            "stop"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackControl::pause        state)
@@ -325,19 +326,22 @@ Beings playing the playlist at song SONG-ID"
 
 Toggles pause/resumes playing; STATE is 0 or 1"
 
-            "pause")
+            "pause"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackControl::next         )
             "Plays next song in the playlist"
 
-            "next")
+            "next"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackControl::previous     )
             "Plays previous song in the playlist"
 
-            "previous")
+            "previous"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackControl::seek         song_pos time)
@@ -345,7 +349,8 @@ Toggles pause/resumes playing; STATE is 0 or 1"
 
 Seeks to position TIME (in seconds) of entry SONG-POS in the playlist"
 
-            "seek")
+            "seek"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackControl::seek-id      song_id time)
@@ -353,7 +358,8 @@ Seeks to position TIME (in seconds) of entry SONG-POS in the playlist"
 
 Seeks to position TIME (in seconds) of SONG-ID"
 
-            "seekid")
+            "seekid"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaybackControl::seek-current time)
@@ -361,7 +367,8 @@ Seeks to position TIME (in seconds) of SONG-ID"
 
 Seeks to the position TIME within the current song.  If passed a string prefixed with +/-, the time is relative to the current playing position"
 
-            "seekcur")
+            "seekcur"
+	    bind-all-arguments-to-one-string)
 
 
 
@@ -372,7 +379,8 @@ Seeks to the position TIME within the current song.  If passed a string prefixed
 
 Adds the file URI to the playlist (directories add recursively). URI can also be a single file."
 
-            "add")
+            "add"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistCurrent::add-id!                 uri #:optional
@@ -388,14 +396,15 @@ URI is always a single file or URL. For example:
 |   OK"
 
             "addid"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
 (mpd-define (mpdPlaylistCurrent::clear!                  )
             "Clears the current playlis.t"
 
-            "clear")
+            "clear"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistCurrent::delete!                 #:optional
@@ -407,7 +416,6 @@ Deletes a song from the playlist.
 Warning: a range seems to delete [START, END)."
 
             "delete"
-	    #t
 	    (lambda (command . l)
 	      (let* ([p/s (number?->string  (cadr l))]
 		     [  e (number?->string (caddr l))])
@@ -422,7 +430,8 @@ Warning: a range seems to delete [START, END)."
 
 Deletes the song SONGID from the playlist"
 
-            "deleteid")
+            "deleteid"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistCurrent::move!                   to #:optional
@@ -434,7 +443,6 @@ Moves the song at FROM or range of songs at START:END to TO in the playlist (ran
 Warning: a range seems to move [START, END)."
 
             "move"
-	    #t
 	    (lambda (command . l)
 	      (let* ([  t (number?->string    (car l))]
 		     [f/s (number?->string  (caddr l))]
@@ -454,7 +462,8 @@ Warning: a range seems to move [START, END)."
 
 Moves the song with FROM (songid) to TO (playlist index) in the playlist. If TO is negative, it is relative to the current song in the playlist (if there is one)."
 
-            "moveid")
+            "moveid"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-find           tag needle)
@@ -463,7 +472,7 @@ Moves the song with FROM (songid) to TO (playlist index) in the playlist. If TO 
 Finds songs in the current playlist with strict matching."
 
             "playlistfind"
-	    #f
+	    bind-all-arguments-to-one-string
 	    (mpdHandlers::parse-files 'file))
 
 
@@ -473,7 +482,7 @@ Finds songs in the current playlist with strict matching."
 Displays a list of songs in the playlist. SONGID is optional and specifies a single song to display info for."
 
             "playlistid"
-	    #f
+	    bind-all-arguments-to-one-string
             (mpdHandlers::parse-files 'file))
 
 
@@ -504,7 +513,7 @@ Warning: a range seems to consist of [START, END)."
 Searches case-insensitively for partial matches in the current playlist."
 
             "playlistsearch"
-	    #f
+	    bind-all-arguments-to-one-string
             (mpdHandlers::parse-files 'file))
 
 
@@ -516,7 +525,7 @@ Displays changed songs currently in the playlist since VERSION.
 To detect songs that were deleted at the end of the playlist, use playlistlength returned by status command."
 
             "plchanges"
-	    #f
+	    bind-all-arguments-to-one-string
             (mpdHandlers::parse-files 'file))
 
 
@@ -528,7 +537,7 @@ Displays changed songs currently in the playlist since VERSION. This function on
 To detect songs that were deleted at the end of the playlist, use playlistlength returned by status command."
 
             "plchangesposid"
-	    #f
+	    bind-all-arguments-to-one-string
             (mpdHandlers::parse-files 'cpos))
 
 
@@ -544,7 +553,7 @@ Ranges can be passed as strings (e.g. \"1:4\") or single integers as string or n
 
   (send-command
     client
-    (create-cmd_string
+    (bind-all-arguments-to-one-string
       "prio"
       (create-ranges-from-list (cons start ranges))
       priority)))
@@ -558,7 +567,7 @@ Same as prio, but address the songs with their id."
 
   (send-command
     client
-    (create-cmd_string "prioid" ids priority id)))
+    (bind-all-arguments-to-one-string "prioid" ids priority id)))
 
 
 (mpd-define (mpdPlaylistCurrent::range-id!               id start #:optional
@@ -568,7 +577,6 @@ Same as prio, but address the songs with their id."
 Specifies the portion of the song that shall be played (since MPD 0.19). START and END are offsets in seconds (fractional seconds allowed); both are optional. Omitting both (i.e. sending just \":\") means \"remove the range, play everything\". A song that is currently playing cannot be manipulated this way."
 
             "rangeid"
-	    #t
 	    (lambda (command . l)
  	      (let ([i (number?->string    (car l))]
 		    [s (number?->string   (cadr l))]
@@ -585,7 +593,6 @@ Specifies the portion of the song that shall be played (since MPD 0.19). START a
 Finds songs in the current playlist with strict matching. Shuffles the current playlist. START:END is optional and specifies a range of songs."
 
             "shuffle"
-	    #t
 	    (lambda (command . l)
  	      (let ([s (number?->string  (cadr l))]
 		    [e (number?->string (caddr l))])
@@ -600,7 +607,8 @@ Finds songs in the current playlist with strict matching. Shuffles the current p
 
 Swaps the positions of SONG1 and SONG2."
 
-            "swap")
+            "swap"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistCurrent::swap-id!                song1 song2)
@@ -608,7 +616,8 @@ Swaps the positions of SONG1 and SONG2."
 
 Swaps the positions of SONG1 and SONG2 (both song ids)."
 
-            "swapid")
+            "swapid"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistCurrent::add-tag-id!             song_id tag value)
@@ -616,7 +625,8 @@ Swaps the positions of SONG1 and SONG2 (both song ids)."
 
 Adds a tag to the specified song. Editing song tags is only possible for remote songs. This change is volatile: it may be overwritten by tags received from the server, and the data is gone when the song gets removed from the queue."
 
-            "addtagid")
+            "addtagid"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistCurrent::clear-tag-id!           song_id #:optional
@@ -625,7 +635,8 @@ Adds a tag to the specified song. Editing song tags is only possible for remote 
 
 Removes tags from the specified song. If TAG is not specified, then all tag values will be removed. Editing song tags is only possible for remote songs."
 
-            "cleartagid")
+            "cleartagid"
+	    bind-all-arguments-to-one-string)
 
 
 
@@ -637,7 +648,7 @@ Removes tags from the specified song. If TAG is not specified, then all tag valu
 Lists the songs in the playlist. Playlist plugins are supported."
 
             "listplaylist"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -647,7 +658,7 @@ Lists the songs in the playlist. Playlist plugins are supported."
 Lists the songs with metadata in the playlist. Playlist plugins are supported."
 
             "listplaylistinfo"
-	    #f
+	    bind-all-arguments-to-one-string
             (mpdHandlers::parse-files 'file))
 
 
@@ -657,7 +668,7 @@ Lists the songs with metadata in the playlist. Playlist plugins are supported."
 After each playlist name the server sends its last modification time as attribute \"Last-Modified\" in ISO 8601 format. To avoid problems due to clock differences between clients and the server, clients should not compare this value with their local clock."
 
             "listplaylists"
-	    #f
+	    bind-all-arguments-to-one-string
             (mpdHandlers::parse-files 'playlist))
 
 
@@ -667,7 +678,6 @@ After each playlist name the server sends its last modification time as attribut
 Loads the playlist into the current queue. Playlist plugins are supported. A range may be specified to load only a part of the playlist."
 
             "load"
-	    #t
 	    (lambda (command . l)
  	      (let ([n (number?->string    (car l))]
 		    [s (number?->string  (caddr l))]
@@ -686,7 +696,8 @@ Adds URI to the playlist NAME.m3u.
 
 NAME.m3u will be created if it does not exist."
 
-            "playlistadd")
+            "playlistadd"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistsStored::playlist-clear!    name)
@@ -694,7 +705,8 @@ NAME.m3u will be created if it does not exist."
 
 Clears the playlist NAME.m3u."
 
-            "playlistclear")
+            "playlistclear"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistsStored::playlist-delete!   name song_pos)
@@ -702,7 +714,8 @@ Clears the playlist NAME.m3u."
 
 Deletes SONGPOS from the playlist NAME.m3u."
 
-            "playlistdelete")
+            "playlistdelete"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistsStored::playlist-move!     name song_id song_pos)
@@ -712,7 +725,8 @@ Moves SONGID in the playlist NAME.m3u to the position SONGPOS.
 
 Warning: MPD API says SONGID but I think they mean the original song position followed by the new song position."
 
-            "playlistmove")
+            "playlistmove"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistsStored::rename!            name new_name)
@@ -720,7 +734,8 @@ Warning: MPD API says SONGID but I think they mean the original song position fo
 
 Renames the playlist NAME.m3u to NEW_NAME.m3u."
 
-            "rename")
+            "rename"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistsStored::remove!            name)
@@ -728,7 +743,8 @@ Renames the playlist NAME.m3u to NEW_NAME.m3u."
 
 Removes the playlist NAME.m3u from the playlist directory."
 
-            "rm")
+            "rm"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdPlaylistsStored::save!              name)
@@ -736,7 +752,8 @@ Removes the playlist NAME.m3u from the playlist directory."
 
 Saves the current playlist to NAME.m3u in the playlist directory."
 
-            "save")
+            "save"
+	    bind-all-arguments-to-one-string)
 
 
 
@@ -755,7 +772,7 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
 
   (send-command
     client
-    (create-cmd_string "count" rest tag needle)
+    (bind-all-arguments-to-one-string "count" rest tag needle)
     mpdHandlers::general))
 
 
@@ -779,7 +796,7 @@ At the moment, ranges must be submitted as strings (e.g. \"1:3\") instead of as 
 
   (send-command
     client
-    (create-cmd_string
+    (bind-all-arguments-to-one-string
       "find"
       (let ([end (member "window" rest)])  ; Finds if "window" was given in
         (if end  ; rest and then feed everything after "window" (which should
@@ -799,7 +816,7 @@ Finds songs in the db that are exactly WHAT and adds them to current playlist. P
 
   (send-command
     client
-    (create-cmd_string "findadd" rest type what)))
+    (bind-all-arguments-to-one-string "findadd" rest type what)))
 
 
 (define*-public (mpdDatabase::list                client type #:optional
@@ -820,7 +837,7 @@ At the moment, – if you wish to specify a grouptype – you'll have to provide
 
   (send-command
     client
-    (create-cmd_string "list" rest type filter_type filter_what)
+    (bind-all-arguments-to-one-string "list" rest type filter_type filter_what)
     mpdHandlers::general))
 
 
@@ -834,7 +851,7 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
 The data returned is returned as a tree (comprised of lists), starting from the base directory (or specified directory). Each directory is its own list with the name of the directory as the first item (except for the base directory) and every song or other directory in said directory following as succeeding elements of the list."
 
             "listall"
-	    #f
+	    bind-all-arguments-to-one-string
             (mpdHandlers::parse-dirs (if uri uri "")))
 
 
@@ -846,7 +863,7 @@ Same as listall, except it also returns metadata info in the same format as lsin
 Do not use this command. Do not manage a client-side copy of MPD's database. That is fragile and adds huge overhead. It will break with large databases. Instead, query MPD whenever you need something."
 
             "listallinfo"
-	    #f
+	    bind-all-arguments-to-one-string
             (lambda (resp)
               ((mpdHandlers::parse-files 'file)
                 ((mpdHandlers::parse-dirs (if uri uri "")) resp))))
@@ -860,7 +877,7 @@ Lists the contents of the directory URI, including files are not recognized by M
 For example, \"smb://SERVER\" returns a list of all shares on the given SMB/CIFS server; \"nfs://servername/path\" obtains a directory listing from the NFS server."
 
             "listfiles"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -876,7 +893,7 @@ This command may be used to list metadata of remote files (e.g. URI beginning wi
 Clients that are connected via UNIX domain socket may use this command to read the tags of an arbitrary local file (URI is an absolute path)."
 
             "lsinfo"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -892,7 +909,7 @@ The response consists of lines in the form \"KEY: VALUE\". Comments with suspici
 The meaning of these depends on the codec, and not all decoder plugins support it. For example, on Ogg files, this lists the Vorbis comments."
 
             "readcomments"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -907,7 +924,7 @@ At the moment, ranges must be submitted as strings (e.g. \"1:3\") instead of as 
 
   (send-command
     client
-    (create-cmd_string "search" rest type what)
+    (bind-all-arguments-to-one-string "search" rest type what)
     (mpdHandlers::parse-files 'file)))
 
 
@@ -918,7 +935,8 @@ Searches for any song that contains WHAT in tag TYPE and adds them to current pl
 
 Parameters have the same meaning as for find, except that search is not case sensitive."
 
-            "searchadd")
+            "searchadd"
+	    bind-all-arguments-to-one-string)
 
 (define-public (mpdDatabase::search-add!          client type what . rest)
   "searchadd {TYPE} {WHAT} [...]
@@ -929,7 +947,7 @@ Parameters have the same meaning as for find, except that search is not case sen
 
   (send-command
     client
-    (create-cmd_string "searchadd" rest type what)))
+    (bind-all-arguments-to-one-string "searchadd" rest type what)))
 
 
 (define-public (mpdDatabase::search-add-playlist! client name type what . rest)
@@ -943,7 +961,7 @@ Parameters have the same meaning as for find, except that search is not case sen
 
   (send-command
     client
-    (create-cmd_string "searchaddpl" rest name type what)))
+    (bind-all-arguments-to-one-string "searchaddpl" rest name type what)))
 
 
 (mpd-define (mpdDatabase::update!                 #:optional uri)
@@ -956,7 +974,7 @@ URI is a particular directory or song/file to update. If you do not specify it, 
 Prints \"updating_db: JOBID\" where JOBID is a positive number identifying the update job. You can read the current job id in the status response."
 
             "update"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -966,7 +984,7 @@ Prints \"updating_db: JOBID\" where JOBID is a positive number identifying the u
 Same as update, but also rescans unmodified files."
 
             "rescan"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -980,7 +998,8 @@ Mount the specified remote storage URI at the given path. Example:
 
 |> mount foo nfs://192.168.1.4/export/mp3"
 
-            "mount")
+            "mount"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdMounts::unmount       path)
@@ -990,7 +1009,8 @@ Unmounts the specified path. Example:
 
 |> unmount foo"
 
-            "unmount")
+            "unmount"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdMounts::list-mounts   )
@@ -1004,7 +1024,7 @@ Unmounts the specified path. Example:
 |   OK"
 
             "listmounts"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1017,7 +1037,7 @@ Unmounts the specified path. Example:
 |   OK"
 
             "listneighbors"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1030,7 +1050,7 @@ Unmounts the specified path. Example:
 Reads a sticker value for the specified object."
 
             "sticker get"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1039,7 +1059,8 @@ Reads a sticker value for the specified object."
 
 Adds a sticker value to the specified object. If a sticker item with that name already exists, it is replaced."
 
-            "sticker set")
+            "sticker set"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdStickers::delete! type uri #:optional name)
@@ -1047,7 +1068,8 @@ Adds a sticker value to the specified object. If a sticker item with that name a
 
 Deletes a sticker value from the specified object. If you do not specify a sticker name, all sticker values are deleted."
 
-            "sticker delete")
+            "sticker delete"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdStickers::list    type uri)
@@ -1056,7 +1078,7 @@ Deletes a sticker value from the specified object. If you do not specify a stick
 Lists the stickers for the specified object."
 
             "sticker list"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1066,7 +1088,7 @@ Lists the stickers for the specified object."
 Searches the sticker database for stickers with the specified name, below the specified directory (URI). For each matching song, it prints the URI and that one sticker's value."
 
             "sticker find"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1078,7 +1100,7 @@ Searches for stickers with the given value.
 Other supported operators are: \"<\", \">\""
 
             "sticker find"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1088,13 +1110,15 @@ Other supported operators are: \"<\", \">\""
 (mpd-define (mpdConnection::close    )
             "Closes the connection to MPD. MPD will try to send the remaining output buffer before it actually closes the connection, but that cannot be guaranteed. This command will not generate a response."
 
-            "close")
+            "close"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdConnection::kill!    )
             "Kills MPD."
 
-            "kill")
+            "kill"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdConnection::password password)
@@ -1102,14 +1126,15 @@ Other supported operators are: \"<\", \">\""
 
 This is used for authentication with the server. PASSWORD is simply the plaintext password."
 
-            "password")
+            "password"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdConnection::ping     )
             "Does nothing but return \"OK\"."
 
             "ping"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1121,7 +1146,8 @@ This is used for authentication with the server. PASSWORD is simply the plaintex
 
 Turns an output off."
 
-            "disableoutput")
+            "disableoutput"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdAudioOutput::enable-output!  id)
@@ -1129,7 +1155,8 @@ Turns an output off."
 
 Turns an output on."
 
-            "enableoutput")
+            "enableoutput"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdAudioOutput::toggle-output!  id)
@@ -1137,7 +1164,8 @@ Turns an output on."
 
 Turns an output on or off, depending on the current state."
 
-            "toggleoutput")
+            "toggleoutput"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdAudioOutput::outputs         )
@@ -1155,7 +1183,7 @@ Return information:
  * outputenabled: Status of the output. 0 if disabled, 1 if enabled."
 
             "outputs"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1170,7 +1198,7 @@ The following response attributes are available:
  * music_directory: The absolute path of the music directory."
 
             "config"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1178,7 +1206,7 @@ The following response attributes are available:
             "Shows which commands the current user has access to."
 
             "commands"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1186,7 +1214,7 @@ The following response attributes are available:
             "Shows which commands the current user does not have access to."
 
             "notcommands"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1194,7 +1222,7 @@ The following response attributes are available:
             "Shows a list of available song metadata."
 
             "tagtypes"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1202,7 +1230,7 @@ The following response attributes are available:
             "Gets a list of available URL handlers."
 
             "urlhandlers"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1217,7 +1245,7 @@ The following response attributes are available:
 |   suffix: mpc"
 
             "decoders"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1229,7 +1257,8 @@ The following response attributes are available:
 
 Subscribe to a channel. The channel is created if it does not exist already. The name may consist of alphanumeric ASCII characters plus underscore, dash, dot and colon."
 
-            "subscribe")
+            "subscribe"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdAudioOutput::unsubscribe  name)
@@ -1237,14 +1266,15 @@ Subscribe to a channel. The channel is created if it does not exist already. The
 
 Unsubscribe from a channel."
 
-            "unsubscribe")
+            "unsubscribe"
+	    bind-all-arguments-to-one-string)
 
 
 (mpd-define (mpdAudioOutput::channels     )
             "Obtain a list of all channels. The response is a list of \"channel:\" lines."
 
             "channels"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1252,7 +1282,7 @@ Unsubscribe from a channel."
             "Reads messages for this client. The response is a list of \"channel:\" and \"message:\" lines."
 
             "readmessages"
-	    #f
+	    bind-all-arguments-to-one-string
             mpdHandlers::general)
 
 
@@ -1261,7 +1291,8 @@ Unsubscribe from a channel."
 
 Send a message to the specified channel."
 
-            "sendmessage")
+            "sendmessage"
+	    bind-all-arguments-to-one-string)
 
 
 
