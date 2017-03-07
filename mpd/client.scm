@@ -92,10 +92,11 @@
 									 line
 									 0
 									 str-ind)))
-				     (let* ([scnd    (string-trim-both (substring
-									 line
-									 str-ind))]
-					    [num?    (string->number scnd)])
+				     (let* ([scnd (string-trim-both (substring
+								      line
+								      (1+
+								        str-ind)))]
+					    [num? (string->number scnd)])
 				       (if num? num? scnd)))
 				  line)))))])))))))
 
