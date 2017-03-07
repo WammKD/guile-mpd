@@ -43,13 +43,14 @@
 ; Converting '((file . "f") (artist . "a") … (file . "f2") (artist . "a2") …)
 ; to '(((file . "f") (artist . "a") …) ((file . "f2") (artist . "a2") …) …),
 ; for example
-(define (mpdHandlers::parse-files delimeter)
+(define (mpdHandlers::parse-files delimeters)
   (lambda (resp)
     (reduce-right
       (lambda (elem lst)
 	(if (list? lst)
-	    (if (eq? (caaar lst) delimeter)
-		(cons (list (list elem)) lst)
+	    (if (any (lambda (delimeter)
+		       (equal? (caaar lst) delimeter)) delimeters)
+		(cons (list elem) lst)
 	      (cons (cons elem (car lst)) (cdr lst)))
 	  (list (list elem lst))))
       '()
@@ -475,7 +476,7 @@ Finds songs in the current playlist with strict matching."
 
             "playlistfind"
 	    bind-all-arguments-to-one-string
-	    (mpdHandlers::parse-files 'file))
+	    (mpdHandlers::parse-files '(file)))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-id             #:optional song_id)
@@ -485,7 +486,7 @@ Displays a list of songs in the playlist. SONGID is optional and specifies a sin
 
             "playlistid"
 	    bind-all-arguments-to-one-string
-            (mpdHandlers::parse-files 'file))
+            (mpdHandlers::parse-files '(file)))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-info           #:optional
@@ -506,7 +507,7 @@ Warning: a range seems to consist of [START, END)."
 		  (cons command (if p/s (if e (list (string-append p/s ":" e))
 					  (list p/s)) '()))
 		  " ")))
-            (mpdHandlers::parse-files 'file))
+            (mpdHandlers::parse-files '(file)))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-search         tag needle)
@@ -516,7 +517,7 @@ Searches case-insensitively for partial matches in the current playlist."
 
             "playlistsearch"
 	    bind-all-arguments-to-one-string
-            (mpdHandlers::parse-files 'file))
+            (mpdHandlers::parse-files '(file)))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-changes        version)
@@ -528,7 +529,7 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
 
             "plchanges"
 	    bind-all-arguments-to-one-string
-            (mpdHandlers::parse-files 'file))
+            (mpdHandlers::parse-files '(file)))
 
 
 (mpd-define (mpdPlaylistCurrent::playlist-changes-pos-id version)
@@ -540,7 +541,7 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
 
             "plchangesposid"
 	    bind-all-arguments-to-one-string
-            (mpdHandlers::parse-files 'cpos))
+            (mpdHandlers::parse-files '(cpos)))
 
 
 (define*-public (mpdPlaylistCurrent::priority!           client priority
@@ -661,7 +662,7 @@ Lists the songs with metadata in the playlist. Playlist plugins are supported."
 
             "listplaylistinfo"
 	    bind-all-arguments-to-one-string
-            (mpdHandlers::parse-files 'file))
+            (mpdHandlers::parse-files '(file)))
 
 
 (mpd-define (mpdPlaylistsStored::list-playlists     )
@@ -671,7 +672,7 @@ After each playlist name the server sends its last modification time as attribut
 
             "listplaylists"
 	    bind-all-arguments-to-one-string
-            (mpdHandlers::parse-files 'playlist))
+            (mpdHandlers::parse-files '(playlist)))
 
 
 (mpd-define (mpdPlaylistsStored::load!              name #:optional start end)
@@ -808,7 +809,7 @@ At the moment, ranges must be submitted as strings (e.g. \"1:3\") instead of as 
           rest))
       type
       what)
-    (mpdHandlers::parse-files 'file)))
+    (mpdHandlers::parse-files '(file))))
 
 
 (define-public (mpdDatabase::find-add!            client type what . rest)
@@ -867,7 +868,7 @@ Do not use this command. Do not manage a client-side copy of MPD's database. Tha
             "listallinfo"
 	    bind-all-arguments-to-one-string
             (lambda (resp)
-              ((mpdHandlers::parse-files 'file)
+              ((mpdHandlers::parse-files '(file))
                 ((mpdHandlers::parse-dirs (if uri uri "")) resp))))
 
 
@@ -880,7 +881,7 @@ For example, \"smb://SERVER\" returns a list of all shares on the given SMB/CIFS
 
             "listfiles"
 	    bind-all-arguments-to-one-string
-            mpdHandlers::general)
+            (mpdHandlers::parse-files '(directory file)))
 
 
 (mpd-define (mpdDatabase::ls-info                 #:optional uri)
@@ -927,7 +928,7 @@ At the moment, ranges must be submitted as strings (e.g. \"1:3\") instead of as 
   (send-command
     client
     (bind-all-arguments-to-one-string "search" rest type what)
-    (mpdHandlers::parse-files 'file)))
+    (mpdHandlers::parse-files '(file))))
 
 
 (mpd-define (mpdDatabase::search-add!             type what)
