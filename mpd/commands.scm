@@ -897,7 +897,7 @@ Clients that are connected via UNIX domain socket may use this command to read t
 
             "lsinfo"
 	    bind-all-arguments-to-one-string
-            mpdHandlers::general)
+            (mpdHandlers::parse-files '(directory)))
 
 
 (mpd-define (mpdDatabase::read-comments           #:optional uri)
