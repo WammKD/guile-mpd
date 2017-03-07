@@ -83,15 +83,21 @@
 	           (return (cons #f line))]
 	     [else (loop
 		     (read-line sock)
-		     (append result (list
-				      (let ([lst-pair (string-split line #\:)])
-					(if (= (length lst-pair) 2)
-					    (cons
-					      (string->symbol (car lst-pair))
-					      (let* ([scnd       (cadr lst-pair)]
-						     [num? (string->number scnd)])
-						(if num? num? scnd)))
-					  lst-pair)))))])))))))
+		     (append
+		       result
+		       (list (let ([str-ind (string-index line #\:)])
+			       (if str-ind
+				   (cons
+				     (string->symbol (string-trim-both (substring
+									 line
+									 0
+									 str-ind)))
+				     (let* ([scnd    (string-trim-both (substring
+									 line
+									 str-ind))]
+					    [num?    (string->number scnd)])
+				       (if num? num? scnd)))
+				  line)))))])))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
   (write-line str (mpd-socket client))

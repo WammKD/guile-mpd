@@ -1295,13 +1295,3 @@ Send a message to the specified channel."
 
             "sendmessage"
 	    bind-all-arguments-to-one-string)
-
-
-
-
-
-
-
-
-
-
