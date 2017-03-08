@@ -45,16 +45,17 @@
 ; for example
 (define (mpdHandlers::parse-files delimeters)
   (lambda (resp)
-    (reduce-right
-      (lambda (elem lst)
-	(if (list? lst)
-	    (if (any (lambda (delimeter)
-		       (equal? (caaar lst) delimeter)) delimeters)
-		(cons (list elem) lst)
-	      (cons (cons elem (car lst)) (cdr lst)))
-	  (list (list elem lst))))
-      '()
-      resp)))
+    (let ([result (reduce-right
+		    (lambda (elem lst)
+		      (if (list? lst)
+			  (if (any (lambda (delim)
+				     (equal? (caaar lst) delim)) delimeters)
+			      (cons (list elem) lst)
+			    (cons (cons elem (car lst)) (cdr lst)))
+			(list (list elem lst))))
+		    '()
+		    resp)])
+      (if (list? result) result (list (list result))))))
 
 (define (mpdHandlers::parse-dirs d)
   (lambda (resp)
@@ -1028,7 +1029,7 @@ Unmounts the specified path. Example:
 
             "listmounts"
 	    bind-all-arguments-to-one-string
-            mpdHandlers::general)
+            (mpdHandlers::parse-files '(mount)))
 
 
 (mpd-define (mpdMounts::list-neighbors)
