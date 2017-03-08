@@ -80,36 +80,33 @@
 	           (return result)]
 	     [(let ([response (string-contains line "ACK [")])
 		(and (number? response) (= 0 response)))
-	           (return (cons #f line))]
+	           (return   line)]
 	     [else (loop
 		     (read-line sock)
 		     (append
 		       result
-		       (list (let ([str-ind (string-index line #\:)])
-			       (if str-ind
-				   (cons
-				     (string->symbol (string-trim-both (substring
-									 line
-									 0
-									 str-ind)))
-				     (let* ([scnd (string-trim-both (substring
-								      line
-								      (1+
-								        str-ind)))]
-					    [num? (string->number scnd)])
-				       (if num? num? scnd)))
-				  line)))))])))))))
+		       (list
+			 (let ([str-ind (string-index line #\:)])
+			   (if str-ind
+			       (cons
+				 (string->symbol
+				   (string-trim-both (substring line 0
+								str-ind)))
+				 (let* ([scnd (string-trim-both
+					        (substring line (1+ str-ind)))]
+					[num?            (string->number scnd)])
+				   (if num? num? scnd)))
+			       line)))))])))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
   (write-line str (mpd-socket client))
 
   (let ([response (mpd-receive (mpd-socket client))])
     (cond
-     [(and (pair? response) (not (car response)))           response]
-     [(or
-        (equal? handler #t)
-	(equal? handler *unspecified*))                      handler]
-     [else                                        (handler response)])))
+     [(pair?   response)             (cons #t response)]
+     [(string? response)             (cons #f response)]
+     [(equal? handler *unspecified*)            handler]
+     [else                           (handler response)])))
 
 (define (connected? client)
   (and (mpd-socket client) #t))
