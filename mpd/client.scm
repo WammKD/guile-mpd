@@ -6,6 +6,10 @@
   #:use-module (ice-9 regex)
   #:use-module (ice-9 optargs)
   #:export (<mpd-client>
+	    <mpd-client-response>
+	    mpd-response?
+	    mpd-response-error?
+	    get-mpd-response
             new-mpd-client
             handle-response
             send-command
@@ -21,8 +25,6 @@
   (socket  mpd-socket  set-mpd-sock!)
   (version mpd-version set-mpd-version!)
   (tags    mpd-tags    set-mpd-tags!))
-
-
 (set-record-type-printer!
   <mpd-client>
   (lambda (client port)
@@ -32,6 +34,19 @@
       (format port " version: ~a" (mpd-version client)))
 
     (format port ">")))
+
+(define-record-type <mpd-client-response>
+  (make-mpd-response error response)
+  mpd-response?
+  (error    mpd-response-error? set-response-error!)
+  (response get-mpd-response    set-mpd-response-message!))
+(set-record-type-printer!
+  <mpd-client-response>
+  (lambda (client port)
+    (format port (string-append
+		   "<mpd-client-response, "
+		   (if (mpd-response-error? client) "with" "no")
+		   " error>"))))
 
 
 
@@ -77,10 +92,10 @@
 		     [result              '()])
 	    (cond
 	     [(string=? "OK" line)
-	           (return result)]
+	           (return                      result)]
 	     [(let ([response (string-contains line "ACK [")])
 		(and (number? response) (= 0 response)))
-	           (return   line)]
+	           (return (make-mpd-response #t line))]
 	     [else (loop
 		     (read-line sock)
 		     (append
@@ -103,10 +118,10 @@
 
   (let ([response (mpd-receive (mpd-socket client))])
     (cond
-     [(pair?   response)             (cons #t response)]
-     [(string? response)             (cons #f response)]
-     [(equal? handler *unspecified*)            handler]
-     [else                           (handler response)])))
+     [(mpd-response?  response)                                       response]
+     [(pair?          response)      (make-mpd-response #f           response)]
+     [(equal? handler *unspecified*) (make-mpd-response #f            handler)]
+     [else                           (make-mpd-response #f (handler response))])))
 
 (define (connected? client)
   (and (mpd-socket client) #t))
