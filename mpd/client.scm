@@ -117,7 +117,7 @@
   (write-line str (mpd-socket client))
 
   (let ([response (mpd-receive (mpd-socket client))])
-    (cond
+    (cond  ; Return errors as mpd-responses so non-errors can be any value
      [(mpd-response?  response)                                       response]
      [(pair?          response)      (make-mpd-response #f           response)]
      [(equal? handler *unspecified*) (make-mpd-response #f            handler)]
