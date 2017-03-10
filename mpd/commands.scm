@@ -405,7 +405,7 @@ URI is always a single file or URL. For example:
 
 
 (mpd-define (mpdPlaylistCurrent::clear!                  )
-            "Clears the current playlis.t"
+            "Clears the current playlist."
 
             "clear"
 	    bind-all-arguments-to-one-string)
@@ -452,12 +452,11 @@ Warning: a range seems to move [START, END)."
 		     [f/s (number?->string  (caddr l))]
 		     [  e (number?->string (cadddr l))])
 		(string-join
-		  (cons command (append (if f/s (if e
-						    (list (string-append
-							    f/s
-							    ":"
-							    e))
-						  (list f/s)) '()) (list t)))
+		  (cons command (append (if f/s
+					    (if e
+						(list (string-append f/s ":" e))
+					      (list f/s))
+					  '()) (list t)))
 		  " "))))
 
 
