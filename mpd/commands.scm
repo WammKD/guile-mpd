@@ -824,7 +824,7 @@ A range can be passed as a string (e.g. \"1:4\") or single integers as string or
                       (create-ranges-from-list ranges) 
                     (create-ranges-from-list (list-head ranges 2)))))
             rest))))
-    (mpdHandlers::parse-files 'file)))
+    (mpdHandlers::parse-files '(file))))
 
 
 (define-public (mpdDatabase::find-add!            client type what . rest)
@@ -948,18 +948,17 @@ A range can be passed as a string (e.g. \"1:4\") or single integers as string or
       "search"
       type
       what
-      (filter/convert-strings/nums
-        (let ([end (member "window" rest)])  ; Finds if "window" was given in
-          (if end  ; rest and then feed everything after "window" (which should
-              (let* ([ranges        (cdr       end)]   ; be a range) to
-                     [ranges_length (length ranges)])  ; create-ranges-from-list
-                (append                                ; and then reappends
-                  (list-head rest (- (length rest) ranges_length))
-                  (if (= ranges_length 1)
-                      (create-ranges-from-list ranges)
-                    (create-ranges-from-list (list-head ranges 2)))))
-            rest))))
-    (mpdHandlers::parse-files 'file)))
+      (let ([end (member "window" rest)])  ; Finds if "window" was given in
+	(if end  ; rest and then feed everything after "window" (which should
+	    (let* ([ranges        (cdr       end)]   ; be a range) to
+		   [ranges_length (length ranges)])  ; create-ranges-from-list
+	      (append                                ; and then reappends
+	        (list-head rest (- (length rest) ranges_length))
+		(if (= ranges_length 1)
+		    (create-ranges-from-list ranges)
+                  (create-ranges-from-list (list-head ranges 2)))))
+          rest)))
+    (mpdHandlers::parse-files '(file))))
 
 
 (define-public (mpdDatabase::search-add!          client type what . rest)
