@@ -74,12 +74,25 @@
                     (cons orig (reverse final)))]
             [else (loop (cdr orig) (cons (car orig) final) dir)])))))
 
+(define (mpdHandlers::convert-states attributes-with-state)
+  (lambda (resp)
+    (map (lambda (attr)
+	   (if (any (lambda (title)
+		      (equal? title (car attr))) attributes-with-state)
+	       (cons (car attr) (if (= (cdr attr) 1) #t #f))
+	       attr)) resp)))
+
 ;;;   Creation Methods   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define (bind-all-arguments-to-one-string command . args)
+(define (bind-all-arguments-to-one-string  command . args)
   (string-join
     (cons command (filter/convert-strings/nums args))
     " "))
+
+(define (convert-state-and-bind-to-command command  state)
+  (if (boolean? state)
+      (string-append command (if state " 1" " 0"))
+    (error "STATE must be a boolean value; do not pass 0 or 1")))
 
 (define-syntax mpd-define
   (lambda (stx)
@@ -177,7 +190,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
 
             "status"
             bind-all-arguments-to-one-string
-            mpdHandlers::general)
+            (mpdHandlers::convert-states '(repeat random single consume)))
 
 
 (mpd-define (mpdStatus::stats)
@@ -202,10 +215,10 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
 (mpd-define (mpdPlaybackOption::consume!           state)
             "consume {STATE}
 
-Sets consume state to STATE (ntroduced with MPD 0.15); STATE should be 0 or 1. When consume is activated, each song played is removed from playlist."
+Sets consume state to STATE (introduced with MPD 0.15); STATE should be 0 or 1. When consume is activated, each song played is removed from playlist."
 
             "consume"
-            bind-all-arguments-to-one-string)
+            convert-state-and-bind-to-command)
 
 
 (mpd-define (mpdPlaybackOption::crossfade!         seconds)
@@ -241,7 +254,7 @@ Additional time subtracted from the overlap calculated by mixrampdb. A value of 
 Sets random state to STATE; STATE should be 0 or 1."
 
             "random"
-            bind-all-arguments-to-one-string)
+            convert-state-and-bind-to-command)
 
 
 (mpd-define (mpdPlaybackOption::repeat!            state)
@@ -250,7 +263,7 @@ Sets random state to STATE; STATE should be 0 or 1."
 Sets repeat state to STATE; STATE should be 0 or 1."
 
             "repeat"
-            bind-all-arguments-to-one-string)
+            convert-state-and-bind-to-command)
 
 
 (mpd-define (mpdPlaybackOption::set-vol!           vol)
@@ -268,7 +281,7 @@ Sets volume to VOL; the range of volume is 0-100."
 Sets single state to STATE (introduced with MPD 0.15); STATE should be 0 or 1. When single is activated, playback is stopped after current song or song is repeated, if the 'repeat' mode is enabled."
 
             "single"
-            bind-all-arguments-to-one-string)
+            convert-state-and-bind-to-command)
 
 
 (mpd-define (mpdPlaybackOption::replay-gain-mode!  mode)
@@ -333,7 +346,7 @@ Beings playing the playlist at song SONG-ID"
 Toggles pause/resumes playing; STATE is 0 or 1"
 
             "pause"
-            bind-all-arguments-to-one-string)
+            convert-state-and-bind-to-command)
 
 
 (mpd-define (mpdPlaybackControl::next         )
@@ -1214,7 +1227,7 @@ Return information:
 
             "outputs"
             bind-all-arguments-to-one-string
-            mpdHandlers::general)
+            (mpdHandlers::convert-states '(outputenabled)))
 
 
 
