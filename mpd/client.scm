@@ -120,7 +120,6 @@
   (let ([response (mpd-receive (get-mpd-socket client))])
     (cond  ; Return errors as mpd-responses so non-errors can be any value
      [(mpd-response?  response)                                       response]
-     [(pair?          response)      (make-mpd-response #f           response)]
      [(equal? handler *unspecified*) (make-mpd-response #f            handler)]
      [else                           (make-mpd-response #f (handler response))])))
 
