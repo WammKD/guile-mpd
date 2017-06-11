@@ -11,6 +11,7 @@
 	    mpd-response-error?
 	    get-mpd-response
             new-mpd-client
+	    mpd-client?
             handle-response
             send-command
             mpd-connect
@@ -20,18 +21,18 @@
 (define-record-type <mpd-client>
   (make-mpd-client host port)
   mpd-client?
-  (host    mpd-host    set-mpd-host!)
-  (port    mpd-port    set-mpd-port!)
-  (socket  mpd-socket  set-mpd-sock!)
-  (version mpd-version set-mpd-version!)
-  (tags    mpd-tags    set-mpd-tags!))
+  (host    get-mpd-host    set-mpd-host!)
+  (port    get-mpd-port    set-mpd-port!)
+  (socket  get-mpd-socket  set-mpd-sock!)
+  (version get-mpd-version set-mpd-version!)
+  (tags    get-mpd-tags    set-mpd-tags!))
 (set-record-type-printer!
   <mpd-client>
   (lambda (client port)
-    (format port "<mpd-client ~a:~a" (mpd-host client) (mpd-port client))
+    (format port "<mpd-client ~a:~a" (get-mpd-host client) (get-mpd-port client))
 
-    (when (mpd-version client)
-      (format port " version: ~a" (mpd-version client)))
+    (when (get-mpd-version client)
+      (format port " version: ~a" (get-mpd-version client)))
 
     (format port ">")))
 
@@ -56,8 +57,8 @@
 (define (mpd-connect client)
   (define addresses (delete-duplicates
                       (getaddrinfo
-                        (mpd-host client)
-                        (number->string (mpd-port client))
+                        (get-mpd-host client)
+                        (number->string (get-mpd-port client))
                         AI_NUMERICSERV)
                       (lambda (a1 a2)
                         (equal? (addrinfo:addr a1) (addrinfo:addr a2)))))
@@ -114,9 +115,9 @@
 			       line)))))])))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
-  (write-line str (mpd-socket client))
+  (write-line str (get-mpd-socket client))
 
-  (let ([response (mpd-receive (mpd-socket client))])
+  (let ([response (mpd-receive (get-mpd-socket client))])
     (cond  ; Return errors as mpd-responses so non-errors can be any value
      [(mpd-response?  response)                                       response]
      [(pair?          response)      (make-mpd-response #f           response)]
@@ -124,9 +125,9 @@
      [else                           (make-mpd-response #f (handler response))])))
 
 (define (connected? client)
-  (and (mpd-socket client) #t))
+  (and (get-mpd-socket client) #t))
 
 (define (disconnect client)
-  (write-line "close" (mpd-socket client))
-  (close (mpd-socket client))
+  (write-line "close" (get-mpd-socket client))
+  (close (get-mpd-socket client))
   #t)
