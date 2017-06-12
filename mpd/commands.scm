@@ -443,12 +443,15 @@ Warning: a range seems to delete [START, END)."
 
             "delete"
             (lambda (command . l)
-              (let* ([p/s (number?->string  (cadr l))]
-                     [  e (number?->string (caddr l))])
-                (string-join
-                  (cons command (if p/s (if e (list (string-append p/s ":" e))
-                                          (list p/s)) '()))
-                  " "))))
+              (let ([lst (list (cadr l) (caddr l))])
+		(if (every (lambda (x)
+			     (or (number? x) (equal? #f x))) lst)
+		    (let ([p/s (if (car  lst)   (number->string (car  lst))  "")]
+			  [  e (if (cadr lst) (string-append
+					        ":"
+					        (number->string (cadr lst))) "")])
+		      (string-append command " " p/s e))
+		  (error "In procedure mpdPlaylistCurrent::delete!: arguments must be numbers")))))
 
 
 (mpd-define (mpdPlaylistCurrent::delete-id!              song_id)
