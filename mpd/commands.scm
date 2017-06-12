@@ -86,7 +86,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define (bind-all-arguments-to-one-string  command . args)
   (string-join
-    (cons command (filter/convert-strings/nums args))
+    (cons 
+      command
+      (filter/convert-strings/nums (let ([lst (car (last-pair args))])
+				     (if (list? lst)
+					 (append
+					   (list-head args (1- (length args)))
+					   lst)
+				       args))))
     " "))
 
 (define (convert-state-and-bind-to-command command  state)
@@ -152,7 +159,7 @@ If the optional SUBSYSTEMS argument is used, MPD will only send notifications wh
     client
     (bind-all-arguments-to-one-string
       "idle"
-      (filter/convert-strings/nums subsystems))
+      subsystems)
     mpdHandlers::general))
 
 
@@ -560,7 +567,7 @@ To detect songs that were deleted at the end of the playlist, use playlistlength
 
 
 (define*-public (mpdPlaylistCurrent::priority!           client priority
-                                                         start . ranges)
+                                                         . ranges)
   "prio {PRIORITY} {START:END...}
 
 Set the priority of the specified songs. A higher priority means that it will be played first when \"random\" mode is enabled.
@@ -573,8 +580,8 @@ Ranges can be passed as strings (e.g. \"1:4\") or single integers as string or n
     client
     (bind-all-arguments-to-one-string
       "prio"
-      (create-ranges-from-list (cons start ranges))
-      priority)))
+      priority
+      (create-ranges-from-list ranges))))
 
 
 (define-public (mpdPlaylistCurrent::priority-id!         client priority
@@ -589,24 +596,25 @@ Same as prio, but address the songs with their id."
       "prioid"
       priority
       id
-      (filter/convert-strings/nums ids))))
+      ids)))
 
 
-(mpd-define (mpdPlaylistCurrent::range-id!               id start #:optional
-                                                                    end)
+(mpd-define (mpdPlaylistCurrent::range-id!               id #:optional
+                                                              start end)
             "rangeid {ID} {START:END}
 
 Specifies the portion of the song that shall be played (since MPD 0.19). START and END are offsets in seconds (fractional seconds allowed); both are optional. Omitting both (i.e. sending just \":\") means \"remove the range, play everything\". A song that is currently playing cannot be manipulated this way."
 
             "rangeid"
             (lambda (command . l)
-              (let ([i (number?->string    (car l))]
-                    [s (number?->string   (cadr l))]
-                    [e (number?->string (cadddr l))])
-                (string-join            ;; Potentially only need start
-                  (cons command (cons i (if e (list (string-append s ":" e))
-                                          (list s))))
-                  " "))))
+              (let ([lst (list (car l) (caddr l) (cadddr l))])
+		(if (every (lambda (x)
+			     (or (number? x) (equal? #f x))) lst)
+		    (let ([i (number->string                 (car   lst)    )]
+			  [s (if (cadr  lst) (number->string (cadr  lst)) "")]
+			  [e (if (caddr lst) (number->string (caddr lst)) "")])
+		      (string-append command " " i " " s ":" e))
+		  (error "In procedure mpdPlaylistCurrent::range-id!: arguments must be numbers")))))
 
 
 (mpd-define (mpdPlaylistCurrent::shuffle!                #:optional start end)
