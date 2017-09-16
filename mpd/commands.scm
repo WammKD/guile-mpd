@@ -531,7 +531,7 @@ Warning: a range seems to consist of [START, END)."
 					        ":"
 						(number->string (cadr lst))) "")])
 		      (string-append command " " p/s e))
-		  (error "In procedure mpdPlaylistCurrent::move!: arguments must be numbers"))))
+		  (error "In procedure mpdPlaylistCurrent::playlist-info: arguments must be numbers"))))
             (mpdHandlers::parse-files '(file)))
 
 
@@ -611,8 +611,7 @@ Specifies the portion of the song that shall be played (since MPD 0.19). START a
             "rangeid"
             (lambda (command . l)
               (let ([lst (list (car l) (caddr l) (cadddr l))])
-		(if (every (lambda (x)
-			     (or (number? x) (equal? #f x))) lst)
+		(if (every number-or-equal? lst)
 		    (let ([i (number->string                 (car   lst)    )]
 			  [s (if (cadr  lst) (number->string (cadr  lst)) "")]
 			  [e (if (caddr lst) (number->string (caddr lst)) "")])
