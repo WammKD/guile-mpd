@@ -9,6 +9,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define (number?->string n)
   (if (number? n) (number->string n) n))
+(define (flatten-list    l)
+  (cond
+   [(null? l)       '()]
+   [(not (pair? l)) (list l)]
+   [else            (append (flatten-list (car l)) (flatten-list (cdr l)))]))
 
 ; Due to – it seems – that #:optional and a #f – if nothing is given for the
 ; optional argument – are sent through, there's no easy way to pick apart which
@@ -86,14 +91,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define (bind-all-arguments-to-one-string  command . args)
   (string-join
-    (cons 
-      command
-      (filter/convert-strings/nums (let ([lst (car (last-pair args))])
-				     (if (list? lst)
-					 (append
-					   (list-head args (1- (length args)))
-					   lst)
-				       args))))
+    (cons command (filter/convert-strings/nums (flatten-list args)))
     " "))
 
 (define (convert-state-and-bind-to-command command  state)
