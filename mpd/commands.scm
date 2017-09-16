@@ -471,16 +471,16 @@ Warning: a range seems to move [START, END)."
 
             "move"
             (lambda (command . l)
-              (let* ([  t (number?->string    (car l))]
-                     [f/s (number?->string  (caddr l))]
-                     [  e (number?->string (cadddr l))])
-                (string-join
-                  (cons command (append (if f/s
-                                            (if e
-                                                (list (string-append f/s ":" e))
-                                              (list f/s))
-                                          '()) (list t)))
-                  " "))))
+              (let ([lst (list (car l) (caddr l) (cadddr l))])
+		(if (every (lambda (x)
+			     (or (number? x) (equal? #f x))) lst)
+		    (let ([  t (number->string                   (car   lst)     )]
+			  [f/s (if (cadr  lst)   (number->string (cadr  lst))  "")]
+			  [  e (if (caddr lst) (string-append
+					         ":"
+						 (number->string (caddr lst))) "")])
+		      (string-append command " " f/s e " " t))
+		  (error "In procedure mpdPlaylistCurrent::move!: arguments must be numbers")))))
 
 
 (mpd-define (mpdPlaylistCurrent::move-id!                from to)
@@ -524,12 +524,15 @@ Warning: a range seems to consist of [START, END)."
 
             "playlistinfo"
             (lambda (command . l)
-              (let ([p/s (number?->string  (cadr l))]
-                    [  e (number?->string (caddr l))])
-                (string-join
-                  (cons command (if p/s (if e (list (string-append p/s ":" e))
-                                          (list p/s)) '()))
-                  " ")))
+              (let ([lst (list (cadr l) (caddr l))])
+		(if (every (lambda (x)
+			     (or (number? x) (equal? #f x))) lst)
+		    (let ([p/s (if (car  lst)   (number->string (car  lst))  "")]
+			  [  e (if (cadr lst) (string-append
+					        ":"
+						(number->string (cadr lst))) "")])
+		      (string-append command " " p/s e))
+		  (error "In procedure mpdPlaylistCurrent::move!: arguments must be numbers"))))
             (mpdHandlers::parse-files '(file)))
 
 
