@@ -115,7 +115,6 @@
 			       line)))))])))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
-  (display str)
   (write-line str (get-mpd-socket client))
 
   (let ([response (mpd-receive (get-mpd-socket client))])

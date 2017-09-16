@@ -7,6 +7,8 @@
 
 ;;;   Helper Methods   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define (number-or-equal? x)
+  (or (number? x) (equal? #f x)))
 (define (number?->string n)
   (if (number? n) (number->string n) n))
 (define (flatten-list    l)
@@ -442,8 +444,7 @@ Warning: a range seems to delete [START, END)."
             "delete"
             (lambda (command . l)
               (let ([lst (list (cadr l) (caddr l))])
-		(if (every (lambda (x)
-			     (or (number? x) (equal? #f x))) lst)
+		(if (every number-or-equal? lst)
 		    (let ([p/s (if (car  lst)   (number->string (car  lst))  "")]
 			  [  e (if (cadr lst) (string-append
 					        ":"
@@ -472,8 +473,7 @@ Warning: a range seems to move [START, END)."
             "move"
             (lambda (command . l)
               (let ([lst (list (car l) (caddr l) (cadddr l))])
-		(if (every (lambda (x)
-			     (or (number? x) (equal? #f x))) lst)
+		(if (every number-or-equal? lst)
 		    (let ([  t (number->string                   (car   lst)     )]
 			  [f/s (if (cadr  lst)   (number->string (cadr  lst))  "")]
 			  [  e (if (caddr lst) (string-append
@@ -525,8 +525,7 @@ Warning: a range seems to consist of [START, END)."
             "playlistinfo"
             (lambda (command . l)
               (let ([lst (list (cadr l) (caddr l))])
-		(if (every (lambda (x)
-			     (or (number? x) (equal? #f x))) lst)
+		(if (every number-or-equal? lst)
 		    (let ([p/s (if (car  lst)   (number->string (car  lst))  "")]
 			  [  e (if (cadr lst) (string-append
 					        ":"
