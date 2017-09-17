@@ -6,12 +6,12 @@
   #:use-module (ice-9 regex)
   #:use-module (ice-9 optargs)
   #:export (<mpd-client>
-	    <mpd-client-response>
-	    mpd-response?
-	    mpd-response-error?
-	    get-mpd-response
+            <mpd-client-response>
+            mpd-response?
+            mpd-response-error?
+            get-mpd-response
             new-mpd-client
-	    mpd-client?
+            mpd-client?
             handle-response
             send-command
             mpd-connect
@@ -47,9 +47,9 @@
   <mpd-client-response>
   (lambda (client port)
     (format port (string-append
-		   "<mpd-client-response, "
-		   (if (mpd-response-error? client) "with" "no")
-		   " error>"))))
+                   "<mpd-client-response, "
+                   (if (mpd-response-error? client) "with" "no")
+                   " error>"))))
 
 
 
@@ -76,45 +76,45 @@
           (connect sock (addrinfo:addr ai))
           (set-mpd-sock!      client sock)
           (set-mpd-version!   client (match:substring
-				       (string-match "^OK MPD (.+)$" (read-line
-								       sock))
-				       1))
-	  (set-mpd-connected! client #t)
+                                       (string-match "^OK MPD (.+)$" (read-line
+                                                                       sock))
+                                       1))
+          (set-mpd-connected! client #t)
           client)
         (lambda args
           (close sock) (if (null? (cdr addresses))
-			   (apply throw args)
-			 (address-loop (cdr addresses))))))))
+                           (apply throw args)
+                         (address-loop (cdr addresses))))))))
 
 (define (mpd-receive sock)
   (call/cc
     (lambda (return)
       (while #t
-	(when (char-ready? sock)
-	  (let loop ([line   (read-line sock)]
-		     [result              '()])
-	    (cond
-	     [(string=? "OK" line)
-	           (return                      result)]
-	     [(let ([response (string-contains line "ACK [")])
-		(and (number? response) (= 0 response)))
-	           (return (make-mpd-response #t line))]
-	     [else (loop
-		     (read-line sock)
-		     (append
-		       result
-		       (list
-			 (let ([str-ind (string-index line #\:)])
-			   (if str-ind
-			       (cons
-				 (string->symbol
-				   (string-trim-both (substring line 0
-								str-ind)))
-				 (let* ([scnd (string-trim-both
-					        (substring line (1+ str-ind)))]
-					[num?            (string->number scnd)])
-				   (if num? num? scnd)))
-			       line)))))])))))))
+        (when (char-ready? sock)
+          (let loop ([line   (read-line sock)]
+                     [result              '()])
+            (cond
+             [(string=? "OK" line)
+                   (return                      result)]
+             [(let ([response (string-contains line "ACK [")])
+                (and (number? response) (= 0 response)))
+                   (return (make-mpd-response #t line))]
+             [else (loop
+                     (read-line sock)
+                     (append
+                       result
+                       (list
+                         (let ([str-ind (string-index line #\:)])
+                           (if str-ind
+                               (cons
+                                 (string->symbol
+                                   (string-trim-both (substring line 0
+                                                                str-ind)))
+                                 (let* ([scnd (string-trim-both
+                                                (substring line (1+ str-ind)))]
+                                        [num?            (string->number scnd)])
+                                   (if num? num? scnd)))
+                               line)))))])))))))
 
 (define* (send-command client str #:optional [handler *unspecified*])
   (write-line str (get-mpd-socket client))

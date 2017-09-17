@@ -84,10 +84,10 @@
 (define (mpdHandlers::convert-states attributes-with-state)
   (lambda (resp)
     (map (lambda (attr)
-	   (if (any (lambda (title)
-		      (equal? title (car attr))) attributes-with-state)
-	       (cons (car attr) (if (= (cdr attr) 1) #t #f))
-	       attr)) resp)))
+           (if (any (lambda (title)
+                      (equal? title (car attr))) attributes-with-state)
+               (cons (car attr) (if (= (cdr attr) 1) #t #f))
+               attr)) resp)))
 
 ;;;   Creation Methods   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -444,13 +444,13 @@ Warning: a range seems to delete [START, END)."
             "delete"
             (lambda (command . l)
               (let ([lst (list (cadr l) (caddr l))])
-		(if (every number-or-equal? lst)
-		    (let ([p/s (if (car  lst)   (number->string (car  lst))  "")]
-			  [  e (if (cadr lst) (string-append
-					        ":"
-					        (number->string (cadr lst))) "")])
-		      (string-append command " " p/s e))
-		  (error "In procedure mpdPlaylistCurrent::delete!: arguments must be numbers")))))
+                (if (every number-or-equal? lst)
+                    (let ([p/s (if (car  lst)   (number->string (car  lst))  "")]
+                          [  e (if (cadr lst) (string-append
+                                                ":"
+                                                (number->string (cadr lst))) "")])
+                      (string-append command " " p/s e))
+                  (error "In procedure mpdPlaylistCurrent::delete!: arguments must be numbers")))))
 
 
 (mpd-define (mpdPlaylistCurrent::delete-id!              song_id)
@@ -473,14 +473,14 @@ Warning: a range seems to move [START, END)."
             "move"
             (lambda (command . l)
               (let ([lst (list (car l) (caddr l) (cadddr l))])
-		(if (every number-or-equal? lst)
-		    (let ([  t (number->string                   (car   lst)     )]
-			  [f/s (if (cadr  lst)   (number->string (cadr  lst))  "")]
-			  [  e (if (caddr lst) (string-append
-					         ":"
-						 (number->string (caddr lst))) "")])
-		      (string-append command " " f/s e " " t))
-		  (error "In procedure mpdPlaylistCurrent::move!: arguments must be numbers")))))
+                (if (every number-or-equal? lst)
+                    (let ([  t (number->string                   (car   lst)     )]
+                          [f/s (if (cadr  lst)   (number->string (cadr  lst))  "")]
+                          [  e (if (caddr lst) (string-append
+                                                 ":"
+                                                 (number->string (caddr lst))) "")])
+                      (string-append command " " f/s e " " t))
+                  (error "In procedure mpdPlaylistCurrent::move!: arguments must be numbers")))))
 
 
 (mpd-define (mpdPlaylistCurrent::move-id!                from to)
@@ -525,13 +525,13 @@ Warning: a range seems to consist of [START, END)."
             "playlistinfo"
             (lambda (command . l)
               (let ([lst (list (cadr l) (caddr l))])
-		(if (every number-or-equal? lst)
-		    (let ([p/s (if (car  lst)   (number->string (car  lst))  "")]
-			  [  e (if (cadr lst) (string-append
-					        ":"
-						(number->string (cadr lst))) "")])
-		      (string-append command " " p/s e))
-		  (error "In procedure mpdPlaylistCurrent::playlist-info: arguments must be numbers"))))
+                (if (every number-or-equal? lst)
+                    (let ([p/s (if (car  lst)   (number->string (car  lst))  "")]
+                          [  e (if (cadr lst) (string-append
+                                                ":"
+                                                (number->string (cadr lst))) "")])
+                      (string-append command " " p/s e))
+                  (error "In procedure mpdPlaylistCurrent::playlist-info: arguments must be numbers"))))
             (mpdHandlers::parse-files '(file)))
 
 
@@ -611,12 +611,12 @@ Specifies the portion of the song that shall be played (since MPD 0.19). START a
             "rangeid"
             (lambda (command . l)
               (let ([lst (list (car l) (caddr l) (cadddr l))])
-		(if (every number-or-equal? lst)
-		    (let ([i (number->string                 (car   lst)    )]
-			  [s (if (cadr  lst) (number->string (cadr  lst)) "")]
-			  [e (if (caddr lst) (number->string (caddr lst)) "")])
-		      (string-append command " " i " " s ":" e))
-		  (error "In procedure mpdPlaylistCurrent::range-id!: arguments must be numbers")))))
+                (if (every number-or-equal? lst)
+                    (let ([i (number->string                 (car   lst)    )]
+                          [s (if (cadr  lst) (number->string (cadr  lst)) "")]
+                          [e (if (caddr lst) (number->string (caddr lst)) "")])
+                      (string-append command " " i " " s ":" e))
+                  (error "In procedure mpdPlaylistCurrent::range-id!: arguments must be numbers")))))
 
 
 (mpd-define (mpdPlaylistCurrent::shuffle!                #:optional start end)
@@ -972,13 +972,13 @@ A range can be passed as a string (e.g. \"1:4\") or single integers as string or
       type
       what
       (let ([end (member "window" rest)])  ; Finds if "window" was given in
-	(if end  ; rest and then feed everything after "window" (which should
-	    (let* ([ranges        (cdr       end)]   ; be a range) to
-		   [ranges_length (length ranges)])  ; create-ranges-from-list
-	      (append                                ; and then reappends
-	        (list-head rest (- (length rest) ranges_length))
-		(if (= ranges_length 1)
-		    (create-ranges-from-list ranges)
+        (if end  ; rest and then feed everything after "window" (which should
+            (let* ([ranges        (cdr       end)]   ; be a range) to
+                   [ranges_length (length ranges)])  ; create-ranges-from-list
+              (append                                ; and then reappends
+                (list-head rest (- (length rest) ranges_length))
+                (if (= ranges_length 1)
+                    (create-ranges-from-list ranges)
                   (create-ranges-from-list (list-head ranges 2)))))
           rest)))
     (mpdHandlers::parse-files '(file))))
