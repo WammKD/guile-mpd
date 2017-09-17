@@ -21,15 +21,17 @@
 (define-record-type <mpd-client>
   (make-mpd-client host port)
   mpd-client?
-  (host    get-mpd-host    set-mpd-host!)
-  (port    get-mpd-port    set-mpd-port!)
-  (socket  get-mpd-socket  set-mpd-sock!)
-  (version get-mpd-version set-mpd-version!)
-  (tags    get-mpd-tags    set-mpd-tags!))
+  (host      get-mpd-host      set-mpd-host!)
+  (port      get-mpd-port      set-mpd-port!)
+  (socket    get-mpd-socket    set-mpd-sock!)
+  (version   get-mpd-version   set-mpd-version!)
+  (tags      get-mpd-tags      set-mpd-tags!)
+  (connected get-mpd-connected set-mpd-connected!))
 (set-record-type-printer!
   <mpd-client>
   (lambda (client port)
-    (format port "<mpd-client ~a:~a" (get-mpd-host client) (get-mpd-port client))
+    (format
+      port "<mpd-client ~a:~a" (get-mpd-host client) (get-mpd-port client))
 
     (when (get-mpd-version client)
       (format port " version: ~a" (get-mpd-version client)))
@@ -72,17 +74,17 @@
       (catch 'system-error
         (lambda ()
           (connect sock (addrinfo:addr ai))
-          (set-mpd-sock! client sock)
-          (set-mpd-version! client (match:substring
-                                     (string-match "^OK MPD (.+)$" (read-line
-                                                                     sock))
-                                     1))
+          (set-mpd-sock!      client sock)
+          (set-mpd-version!   client (match:substring
+				       (string-match "^OK MPD (.+)$" (read-line
+								       sock))
+				       1))
+	  (set-mpd-connected! client #t)
           client)
         (lambda args
-          (close sock)
-          (if (null? (cdr addresses))
-              (apply throw args)
-            (address-loop (cdr addresses))))))))
+          (close sock) (if (null? (cdr addresses))
+			   (apply throw args)
+			 (address-loop (cdr addresses))))))))
 
 (define (mpd-receive sock)
   (call/cc
@@ -124,9 +126,10 @@
      [else                           (make-mpd-response #f (handler response))])))
 
 (define (connected? client)
-  (and (get-mpd-socket client) #t))
+  (get-mpd-connected client))
 
 (define (disconnect client)
   (write-line "close" (get-mpd-socket client))
   (close (get-mpd-socket client))
+  (set-mpd-connected! client #f)
   #t)
