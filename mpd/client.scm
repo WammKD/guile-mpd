@@ -12,11 +12,10 @@
             get-mpd-response
             new-mpd-client
             mpd-client?
-            handle-response
             send-command
             mpd-connect
-            connected?
-            disconnect))
+            mpd-connected?
+            mpd-disconnect))
 
 (define-record-type <mpd-client>
   (make-mpd-client host port)
@@ -125,10 +124,10 @@
      [(equal? handler *unspecified*) (make-mpd-response #f            handler)]
      [else                           (make-mpd-response #f (handler response))])))
 
-(define (connected? client)
+(define (mpd-connected? client)
   (get-mpd-connected client))
 
-(define (disconnect client)
+(define (mpd-disconnect client)
   (write-line "close" (get-mpd-socket client))
   (close (get-mpd-socket client))
   (set-mpd-connected! client #f)
